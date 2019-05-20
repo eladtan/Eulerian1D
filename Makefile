@@ -27,7 +27,7 @@ else
 	MODE = production
 	OPTIMIZATION_FLAGS := -O3 -march=native -std=c++11 -fno-expensive-optimizations
 endif
-OPTIMIZATION_FLAGS += -I $(HDF_DIR) -I $(BOOST_DIR) 
+OPTIMIZATION_FLAGS += -I $(HDF_DIR) -I $(BOOST_DIR) -I $(SOURCE_DIR)
 LIBRARY_FOLDER := library_$(MODE)
 OBJECTS := $(patsubst $(SOURCE_DIR)/%.cpp,$(LIBRARY_FOLDER)/%.o,$(SOURCES))
 
