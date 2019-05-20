@@ -274,7 +274,7 @@ void hdsim::TimeAdvance2()
 	UpdateExtensives(extensives_, fluxes_, dt,geo_,edges_);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
 #ifdef RICH_MPI
-	RedistributeExtensives(extensives_,edges_,cells_,rs_values_);
+	RedistributeExtensives(extensives_,edges_,cells_);
 #endif
 	UpdateCells(extensives_, edges_, eos_, cells_,geo_);
 	time_ += 0.5*dt;
@@ -284,53 +284,7 @@ void hdsim::TimeAdvance2()
 
 void hdsim::AMR(void)
 {
-	double pratio = 1.04;
-	double dratio = 1.1;
-	size_t N = cells_.size();
-	std::vector<size_t> edge_remove;
-	for (size_t i = 3; i < N - 3; ++i)
-	{
-		// was left cell removed?
-		if (edge_remove.size() > 0 && (edge_remove.back() == i || edge_remove.back() == i - 1))
-			continue;
-		double dx = edges_[i + 1] - edges_[i];
-		// Are we too small?
-		if(dx< AMR_ratio_*edges_[i])
-		{
-			// Are we smooth?
-			bool smooth_left_left_left = (cells_[i - 2].density < cells_[i - 3].density * dratio) && (cells_[i - 2].density * dratio > cells_[i - 3].density)
-				&& (cells_[i - 2].pressure < cells_[i - 3].pressure*pratio) && (cells_[i - 2].pressure*pratio > cells_[i - 3].pressure);
-			bool smooth_left_left = (cells_[i - 1].density < cells_[i - 2].density * dratio) && (cells_[i - 1].density * dratio > cells_[i - 2].density)
-				&& (cells_[i - 1].pressure < cells_[i - 2].pressure*pratio) && (cells_[i - 1].pressure*pratio > cells_[i - 2].pressure);
-			bool smooth_left = (cells_[i].density < cells_[i - 1].density * dratio) && (cells_[i].density * dratio > cells_[i - 1].density)
-				&& (cells_[i].pressure < cells_[i - 1].pressure*pratio) && (cells_[i].pressure*pratio > cells_[i - 1].pressure);
-			bool smooth_right = (cells_[i].density < cells_[i + 1].density * dratio) && (cells_[i].density * dratio > cells_[i + 1].density)
-				&& (cells_[i].pressure < cells_[i + 1].pressure*pratio) && (cells_[i].pressure*pratio > cells_[i + 1].pressure);
-			bool smooth_right_right = (cells_[i + 1].density < cells_[i + 2].density * dratio) && (cells_[i + 1].density * dratio > cells_[i + 2].density)
-				&& (cells_[i + 1].pressure < cells_[i + 2].pressure*pratio) && (cells_[i + 1].pressure*pratio > cells_[i + 2].pressure);
-			bool smooth_right_right_right = (cells_[i + 2].density < cells_[i + 3].density * dratio) && (cells_[i + 2].density * dratio > cells_[i + 3].density)
-				&& (cells_[i + 2].pressure < cells_[i + 3].pressure*pratio) && (cells_[i + 2].pressure*pratio > cells_[i + 3].pressure);
-			if (smooth_left && smooth_right && smooth_left_left && smooth_right_right && smooth_left_left_left && smooth_right_right_right)
-			{
-				if((edges_[i+2]-edges_[i+1])>(edges_[i] - edges_[i - 1]))
-					edge_remove.push_back(i);
-				else
-					edge_remove.push_back(i + 1);
-			}
-		}
-	}
-	edge_remove = unique(edge_remove);
-	size_t Nremove = edge_remove.size();
-	for (size_t i = 0; i < Nremove; ++i)
-		extensives_[edge_remove[i] - 1] += extensives_[edge_remove[i]];
-	// Remove old cells
-	if (Nremove > 0)
-	{
-		RemoveVector(extensives_, edge_remove);
-		RemoveVector(cells_, edge_remove);
-		RemoveVector(edges_, edge_remove);
-		ReCalcCells(extensives_);
-	}
+	
 }
 
 

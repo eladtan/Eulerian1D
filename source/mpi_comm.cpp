@@ -279,7 +279,7 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 	return res;
 }
 
-void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &edges,std::vector<Primitive> &pcells, std::vector<RSsolution> &rsvalues)
+void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &edges,std::vector<Primitive> &pcells)
 {
 	int nlocal = cells.size();
 	int ntotal = 0;
@@ -331,60 +331,50 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		7*(index_upper - index_lower + 1),MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	pcells.resize(tosend.size() / 7);
 	cells = VecDouble2Extensive(tosend,pcells);
-	// deal with the edges and RSvalues
+	// deal with the edges
 	if (rank == 0)
 	{
-		torecv.resize((ntotal + 1)*3);
+		torecv.resize((ntotal + 1));
 		for (size_t i = 0; i < ws; ++i)
 		{
 			nperproc[i] /= 7;
-			nperproc[i] *= 3;
 		}
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = nperproc[i - 1] + disp[i - 1];
 	}
 	size_t Nedges = edges.size() - 1;
-	tosend.resize(Nedges*3);
+	tosend.resize(Nedges);
 	for (size_t i = 0; i < Nedges; ++i)
 	{
-		tosend[i * 3] = edges[i + 1];
-		tosend[i * 3 + 1] = rsvalues[i + 1].pressure;
-		tosend[i * 3 + 2] = rsvalues[i + 1].velocity;
+		tosend[i] = edges[i + 1];
 	}
-	MPI_Gatherv(&tosend[0], Nedges*3, MPI_DOUBLE, &torecv[3], &nperproc[0], &disp[0],
+	MPI_Gatherv(&tosend[0], Nedges, MPI_DOUBLE, &torecv[1], &nperproc[0], &disp[0],
 		MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (rank == 0)
 	{
 		torecv[0] = edges[0];
-		torecv[1] = rsvalues[0].pressure;
-		torecv[2] = rsvalues[0].velocity;
 	}
-	tosend.resize(3*(index_upper - index_lower + 2));
+	tosend.resize((index_upper - index_lower + 2));
 	if (rank == 0)
 	{
 		for (size_t i = 0; i < ws; ++i)
 		{
 			newn[i] /= 7;
 			newn[i]++;
-			newn[i]*=3;
 			if(i>0)
-				disp[i] =newn[i-1] + disp[i-1] - 3;
+				disp[i] =newn[i-1] + disp[i-1] - 1;
 		}
 	}
 	size_t Nnew = (index_upper - index_lower + 2);
-	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0], 3*Nnew, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0], Nnew, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	MPI_Barrier(MPI_COMM_WORLD);
 	edges.resize(Nnew);
-	rsvalues.resize(Nnew);
 	for (size_t i = 0; i < Nnew; ++i)
 	{
-		edges[i] = tosend[i * 3];
-		rsvalues[i].pressure = tosend[i * 3 + 1];
-		rsvalues[i].velocity = tosend[i * 3 + 2];
+		edges[i] = tosend[i];
 	}
 	// clear memory
-	rsvalues.shrink_to_fit();
 	edges.shrink_to_fit();
 	cells.shrink_to_fit();
 	pcells.shrink_to_fit();

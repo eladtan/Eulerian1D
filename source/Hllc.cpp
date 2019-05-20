@@ -1,4 +1,3 @@
-#include "..\..\Lagrangian1D\source\Hllc.hpp"
 #include "Hllc.hpp"
 #include <algorithm>
 
@@ -98,10 +97,6 @@ Hllc::Hllc(bool iter) :iter_(iter)
 {}
 
 
-Hllc::Hllc(double gama)
-{
-}
-
 Extensive Hllc::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos) const
 {
 	double pstar = Hll_pstar(left, right, eos);
@@ -162,4 +157,8 @@ Extensive Hllc::SolveRS(Primitive const& left, Primitive const& right, IdealGas 
 					return Fr;
 				else
 					throw;
+}
+
+Hllc::~Hllc()
+{
 }
