@@ -251,7 +251,6 @@ void hdsim::TimeAdvance2()
 		dt *= 0.005;
 
 	vector<Extensive> old_extensive(extensives_);
-	vector<double> old_edges(edges_);
 
 	UpdateExtensives(extensives_, fluxes_, 0.5*dt,geo_,edges_);
 	source_.CalcForce(edges_, cells_, time_, extensives_, 0.5*dt);	
@@ -272,7 +271,6 @@ void hdsim::TimeAdvance2()
 	}
 	*/
 	extensives_ = old_extensive;
-	edges_ = old_edges;
 	UpdateExtensives(extensives_, fluxes_, dt,geo_,edges_);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
 #ifdef RICH_MPI
