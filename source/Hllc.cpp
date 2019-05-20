@@ -1,5 +1,6 @@
 #include "Hllc.hpp"
 #include <algorithm>
+#include <cmath>
 
 namespace
 {
