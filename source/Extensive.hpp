@@ -14,6 +14,8 @@ public:
 
 	Extensive& operator+=(const Extensive &rhs);
 
+	Extensive& operator*=(double s);
+
 	Extensive& operator=(Extensive const& other);
 };
 

@@ -19,6 +19,16 @@ Extensive & Extensive::operator+=(const Extensive & rhs)
 	return *this;
 }
 
+Extensive & Extensive::operator*=(double s)
+{
+	this->mass *= s;
+	this->momentum *= s;
+	this->energy *= s;
+	this->entropy *= s;
+	this->et *= s;
+	return *this;
+}
+
 Extensive & Extensive::operator=(Extensive const & other)
 {
 	this->energy = other.energy;

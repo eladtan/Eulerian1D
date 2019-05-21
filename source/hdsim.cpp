@@ -272,11 +272,11 @@ void hdsim::TimeAdvance2()
 
 	vector<Extensive> old_extensive(extensives_);
 	std::vector<double> oldedges(edges_);
-	UpdateExtensives(extensives_, fluxes_, 0.5*dt,geo_,edges_);
-	MoveGrid(vgrid,edges_,0.5*dt);
-	source_.CalcForce(edges_, cells_, time_, extensives_, 0.5*dt);	
+	UpdateExtensives(extensives_, fluxes_, dt,geo_,edges_);
+	MoveGrid(vgrid,edges_,dt);
+	source_.CalcForce(edges_, cells_, time_, extensives_,dt);	
 	UpdateCells(extensives_, edges_, eos_, cells_, geo_);
-	time_ += 0.5*dt;
+	time_ += dt;
 
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
 	GetFluxes(interp_values_, rs_, fluxes_,eos_,vgrid);
@@ -291,16 +291,18 @@ void hdsim::TimeAdvance2()
 		}
 	}
 	*/
-	extensives_ = old_extensive;
 	UpdateExtensives(extensives_, fluxes_, dt,geo_,edges_);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
-	edges_ = oldedges;
-	MoveGrid(vgrid,edges_,dt);
+	size_t N = extensives_.size();
+	for (size_t i = 0; i < N; ++i)
+	{
+		extensives_[i] += old_extensive[i];
+		extensives_[i] *= 0.5;
+	}
 #ifdef RICH_MPI
 	RedistributeExtensives(extensives_,edges_,cells_);
 #endif
 	UpdateCells(extensives_, edges_, eos_, cells_,geo_);
-	time_ += 0.5*dt;
 	++cycle_;
 	//AMR();
 }
