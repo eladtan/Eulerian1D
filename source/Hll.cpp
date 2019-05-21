@@ -70,7 +70,7 @@ Hll::~Hll()
 {}
 
 
-Extensive Hll::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos) const
+Extensive Hll::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos,double vface) const
 {
 	double cl = eos.dp2c(left.density, left.pressure);
 	double cr = eos.dp2c(right.density, right.pressure);
@@ -88,21 +88,21 @@ Extensive Hll::SolveRS(Primitive const& left, Primitive const& right, IdealGas c
 		sl = ws.left;
 		sr = ws.right;
 	}
-	if (sl > 0)
+	if (sl > vface)
 	{
 		Extensive res;
-		res.mass = left.velocity*left.density;
+		res.mass = (left.velocity-vface)*left.density;
 		res.momentum = left.velocity*res.mass + left.pressure;
-		res.energy = left.velocity*(left.pressure + left.energy*left.density + 0.5*res.mass*left.velocity);
+		res.energy = (left.velocity-vface)*(left.pressure + left.energy*left.density + 0.5*left.density*left.velocity*left.velocity);
 		res.entropy = res.mass*left.entropy;
 		return res;
 	}
-	if (sr < 0)
+	if (sr < vface)
 	{
 		Extensive res;
-		res.mass = right.velocity*right.density;
+		res.mass = (right.velocity-vface)*right.density;
 		res.momentum = right.velocity*res.mass + right.pressure;
-		res.energy = right.velocity*(right.pressure + right.energy*right.density + 0.5*res.mass*right.velocity);
+		res.energy = (right.velocity-vface)*(right.pressure + right.energy*right.density + 0.5*right.density*right.velocity*right.velocity);
 		res.entropy = res.mass*right.entropy;
 		return res;
 	}
@@ -116,9 +116,17 @@ Extensive Hll::SolveRS(Primitive const& left, Primitive const& right, IdealGas c
 	Fr.energy = right.velocity*(right.pressure + right.energy*right.density + 0.5*Fr.mass*right.velocity);
 	Extensive res;
 	double denom = 1.0 / (sr - sl);
+	Extensive Ull;
+	Ull.mass = (sr*right.density - sl * left.density + Fl.mass - Fr.mass)*denom;
+	Ull.momentum = (sr*right.density*right.velocity - sl * left.density*left.velocity + Fl.momentum - Fr.momentum)*denom;
+	Ull.energy = (sr*right.density*(right.energy + 0.5*right.velocity*right.velocity) - sl * left.density*(0.5*left.velocity*left.velocity + left.energy)
+		+ Fl.energy - Fr.energy)*denom;
 	res.mass = (sr*Fl.mass - sl * Fr.mass + sr * sl*(right.density - left.density))*denom;
 	res.momentum = (sr*Fl.momentum - sl * Fr.momentum + sr * sl*(right.density*right.velocity - left.density*left.velocity))*denom;
 	res.energy = (sr*Fl.energy - sl * Fr.energy + sr * sl*(right.density*(right.energy+0.5*right.velocity*right.velocity) - left.density*(0.5*left.velocity*left.velocity+left.energy)))*denom;
+	res.mass -= vface * Ull.mass;
+	res.momentum -= vface * Ull.momentum;
+	res.energy -= vface * Ull.energy;
 	res.entropy = res.mass*((res.mass > 0) ? left.entropy : right.entropy);
 	return res;
 }

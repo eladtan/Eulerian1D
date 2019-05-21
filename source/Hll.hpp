@@ -9,7 +9,7 @@ private:
 public:
 	Hll(bool iter);
 
-	Extensive SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos) const;
+	Extensive SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos,double vface) const;
 
 	~Hll();
 };

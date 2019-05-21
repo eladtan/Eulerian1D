@@ -12,7 +12,7 @@ public:
 	ExactRS(double gama);
 	~ExactRS();
 
-	Extensive SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos) const;
+	Extensive SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos,double vface) const;
 };
 
 

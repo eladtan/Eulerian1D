@@ -204,7 +204,7 @@ ExactRS::ExactRS(double gamma):gamma_(gamma)
 ExactRS::~ExactRS()
 {}
 
-Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos) const
+Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos,double vface) const
 {
 	// Solve RS
 	std::pair<double, double> p_u_star = Get_p_u_star(left, right, gamma_);
@@ -217,12 +217,12 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 		if (left_shock)
 		{
 			double Sl = left.velocity - al * std::sqrt((gamma_ + 1)*p_u_star.first / (2 * gamma_*left.pressure + (gamma_ - 1) / (2 * gamma_)));
-			if (Sl > 0)
+			if (Sl > vface)
 			{
 				Extensive res;
-				res.mass = left.velocity*left.density;
-				res.momentum = left.velocity*res.mass + left.pressure;
-				res.energy = left.velocity*(left.pressure*gamma_ / (gamma_ - 1) + 0.5*res.mass*left.velocity);
+				res.mass = (left.velocity-vface)*left.density;
+				res.momentum = (left.velocity-vface)*left.density*left.velocity + left.pressure;
+				res.energy = (left.velocity-vface)*(left.pressure*gamma_ / (gamma_ - 1) + 0.5*left.density*left.velocity*left.velocity);
 				res.entropy = res.mass*left.entropy;
 				return res;
 			}
@@ -230,9 +230,9 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 			{
 				double rho_star = left.density*((p_u_star.first / left.pressure + (gamma_ - 1) / (gamma_ + 1)) / ((gamma_ - 1)*p_u_star.first / ((gamma_ + 1)*left.pressure) + 1));
 				Extensive res;
-				res.mass = p_u_star.second*rho_star;
+				res.mass = (p_u_star.second-vface)*rho_star;
 				res.momentum = p_u_star.second*res.mass + p_u_star.first;
-				res.energy = p_u_star.second*(p_u_star.first*gamma_ / (gamma_ - 1) + 0.5*res.mass*p_u_star.second);
+				res.energy = (p_u_star.second-vface)*(p_u_star.first*gamma_ / (gamma_ - 1) + 0.5*p_u_star.second*rho_star*p_u_star.second);
 				res.entropy = res.mass*left.entropy;
 				return res;
 			}
@@ -240,24 +240,24 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 		else
 		{
 			double Shl = left.velocity - al;
-			if (Shl > 0)
+			if (Shl > vface)
 			{
 				Extensive res;
-				res.mass = left.velocity*left.density;
+				res.mass = (left.velocity-vface)*left.density;
 				res.momentum = left.velocity*res.mass + left.pressure;
-				res.energy = left.velocity*(left.pressure*gamma_ / (gamma_ - 1)+ 0.5*res.mass*left.velocity);
+				res.energy = (left.velocity-vface)*(left.pressure*gamma_ / (gamma_ - 1)+ 0.5*left.density*left.velocity*left.velocity);
 				res.entropy = res.mass*left.entropy;
 				return res;
 			}
 			double al_star = al * std::pow(p_u_star.first / left.pressure, (gamma_ - 1) / (2 * gamma_));
 			double Stl = p_u_star.second - al_star;
-			if (Stl < 0)
+			if (Stl < vface)
 			{
 				double rho_fan = left.density*std::pow(p_u_star.first / left.pressure, 1.0 / gamma_);
 				Extensive res;
-				res.mass = p_u_star.second*rho_fan;
+				res.mass = (p_u_star.second-vface)*rho_fan;
 				res.momentum = p_u_star.second*res.mass + p_u_star.first;
-				res.energy = p_u_star.second*(p_u_star.first*gamma_ / (gamma_ - 1)+res.mass*p_u_star.second*0.5);
+				res.energy = (p_u_star.second-vface)*(p_u_star.first*gamma_ / (gamma_ - 1)+rho_fan*p_u_star.second*p_u_star.second*0.5);
 				res.entropy = res.mass*left.entropy;
 				return res;
 			}
@@ -267,9 +267,9 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 				double v = 2.0*(al + (gamma_ - 1)*left.velocity*0.5) / (gamma_ + 1);
 				double p = left.pressure*std::pow(rho_fan / left.density, gamma_);
 				Extensive res;
-				res.mass = v*rho_fan;
+				res.mass = (v-vface)*rho_fan;
 				res.momentum = v*res.mass +p;
-				res.energy = v*(p*gamma_ / (gamma_ - 1)+0.5*res.mass*v);
+				res.energy = (v-vface)*(p*gamma_ / (gamma_ - 1)+0.5*rho_fan*v*v);
 				res.entropy = res.mass*left.entropy;
 				return res;
 			}
@@ -281,12 +281,12 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 		if (right_shock)
 		{
 			double Sr = right.velocity + ar * std::sqrt((gamma_ + 1)*p_u_star.first / (2 * gamma_*right.pressure + (gamma_ - 1) / (2 * gamma_)));
-			if (Sr < 0)
+			if (Sr < vface)
 			{
 				Extensive res;
-				res.mass = right.velocity*right.density;
+				res.mass = (right.velocity-vface)*right.density;
 				res.momentum = right.velocity*res.mass + right.pressure;
-				res.energy = right.velocity*(right.pressure*gamma_ / (gamma_ - 1) + 0.5*res.mass*right.velocity);
+				res.energy = (right.velocity-vface)*(right.pressure*gamma_ / (gamma_ - 1) + 0.5*right.density*right.velocity*right.velocity);
 				res.entropy = res.mass*right.entropy;
 				return res;
 			}
@@ -294,9 +294,9 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 			{
 				double rho_star = right.density*((p_u_star.first / right.pressure + (gamma_ - 1) / (gamma_ + 1)) / ((gamma_ - 1)*p_u_star.first / ((gamma_ + 1)*right.pressure) + 1));
 				Extensive res;
-				res.mass = p_u_star.second*rho_star;
+				res.mass = (p_u_star.second-vface)*rho_star;
 				res.momentum = p_u_star.second*res.mass + p_u_star.first;
-				res.energy = p_u_star.second*(p_u_star.first*gamma_ / (gamma_ - 1) + 0.5*res.mass*p_u_star.second);
+				res.energy = (p_u_star.second-vface)*(p_u_star.first*gamma_ / (gamma_ - 1) + 0.5*rho_star*p_u_star.second*p_u_star.second);
 				res.entropy = res.mass*right.entropy;
 				return res;
 			}
@@ -305,35 +305,35 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 		{
 			double ar_star = ar * std::pow(p_u_star.first / right.pressure, (gamma_ - 1) / (2 * gamma_));
 			double Str = p_u_star.second + ar_star;
-			if (Str > 0)
+			if (Str > vface)
 			{
 				double rho_fan = right.density*std::pow(p_u_star.first / right.pressure, 1.0 / gamma_);
 				Extensive res;
-				res.mass = p_u_star.second*rho_fan;
+				res.mass = (p_u_star.second-vface)*rho_fan;
 				res.momentum = p_u_star.second*res.mass + p_u_star.first;
-				res.energy = p_u_star.second*(p_u_star.first*gamma_ / (gamma_ - 1)+0.5*res.mass*p_u_star.second);
+				res.energy = (p_u_star.second-vface)*(p_u_star.first*gamma_ / (gamma_ - 1)+0.5*rho_fan*p_u_star.second*p_u_star.second);
 				res.entropy = res.mass*right.entropy;
 				return res;
 			}
 			double Shr = right.velocity + ar;
-			if (Shr > 0)
+			if (Shr > vface)
 			{
 				double rho_fan = right.density*std::pow(2.0 / (gamma_ + 1) - (gamma_ - 1)*right.velocity / ((gamma_ + 1)*ar), 2.0 / (gamma_ - 1));
 				double v = 2.0*(-ar + (gamma_ - 1)*right.velocity*0.5) / (gamma_ + 1);
 				double p = right.pressure*std::pow(rho_fan / right.density, gamma_);
 				Extensive res;
-				res.mass = v * rho_fan;
+				res.mass = (v-vface) * rho_fan;
 				res.momentum = v * res.mass + p;
-				res.energy = v * (p*gamma_ / (gamma_ - 1)+0.5*res.mass*v);
+				res.energy = (v-vface) * (p*gamma_ / (gamma_ - 1)+0.5*rho_fan*v*v);
 				res.entropy = res.mass*right.entropy;
 				return res;
 			}
 			else
 			{
 				Extensive res;
-				res.mass = right.velocity*right.density;
+				res.mass = (right.velocity-vface)*right.density;
 				res.momentum = right.velocity*res.mass + right.pressure;
-				res.energy = right.velocity*(right.pressure*gamma_ / (gamma_ - 1)+0.5*res.mass*right.velocity);
+				res.energy = (right.velocity-vface)*(right.pressure*gamma_ / (gamma_ - 1)+0.5*right.density*right.velocity*right.velocity);
 				res.entropy = res.mass*right.entropy;
 				return res;
 			}

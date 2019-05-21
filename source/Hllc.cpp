@@ -98,7 +98,7 @@ Hllc::Hllc(bool iter) :iter_(iter)
 {}
 
 
-Extensive Hllc::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos) const
+Extensive Hllc::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos,double vface) const
 {
 	double pstar = Hll_pstar(left, right, eos);
 	pstar = std::max(pstar, 0.0);
@@ -133,29 +133,41 @@ Extensive Hllc::SolveRS(Primitive const& left, Primitive const& right, IdealGas 
 	starred_state(right, ws2.right, ws2.center, usr);
 
 
-	if (ws2.left > 0)
+	if (ws2.left > vface)
+	{
+		Fl.mass -= vface * left.density;
+		Fl.momentum -= vface * left.density*left.velocity;
+		Fl.energy -= vface* (left.pressure + left.energy*left.density + 0.5*left.density*left.velocity*left.velocity);
+		Fl.entropy = Fl.mass*left.entropy;
 		return Fl;
+	}	
 	else
-		if (ws2.left <= 0 && ws2.center >= 0)
+		if (ws2.left <= vface && ws2.center >= vface)
 		{
-			Fl.mass += ws2.left*(usl.mass - ul.mass);
-			Fl.momentum += ws2.left*(usl.momentum - ul.momentum);
-			Fl.energy += ws2.left*(usl.energy - ul.energy);
+			Fl.mass += ws2.left*(usl.mass - ul.mass) -usl.mass*vface;
+			Fl.momentum += ws2.left*(usl.momentum - ul.momentum)-usl.momentum*vface;
+			Fl.energy += ws2.left*(usl.energy - ul.energy)-usl.energy*vface;
 			Fl.entropy = Fl.mass*left.entropy;
 			return Fl;
 		}
 		else
-			if (ws2.center < 0 && ws2.right >= 0)
+			if (ws2.center < vface && ws2.right >= vface)
 			{
-				Fr.mass += ws2.right*(usr.mass - ur.mass);
-				Fr.momentum += ws2.right*(usr.momentum - ur.momentum);
-				Fr.energy += ws2.right*(usr.energy - ur.energy);
+				Fr.mass += ws2.right*(usr.mass - ur.mass) -usr.mass*vface;
+				Fr.momentum += ws2.right*(usr.momentum - ur.momentum)-usr.momentum*vface;
+				Fr.energy += ws2.right*(usr.energy - ur.energy)-usr.energy*vface;
 				Fr.entropy = Fr.mass*right.entropy;
 				return Fr;
 			}
 			else
-				if (ws2.right < 0)
+				if (ws2.right < vface)
+				{
+					Fr.mass -= vface * right.density;
+					Fr.momentum -= vface * right.density*right.velocity;
+					Fr.energy -= vface * (right.pressure + right.energy*right.density + 0.5*right.density*right.velocity*right.velocity);
+					Fr.entropy = Fl.mass*right.entropy;
 					return Fr;
+				}
 				else
 					throw;
 }

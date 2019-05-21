@@ -8,7 +8,7 @@ class RiemannSolver
 {
 public:
 	
-	virtual Extensive SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos) const = 0;
+	virtual Extensive SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos,double vface =0) const = 0;
 
 	virtual ~RiemannSolver() {};
 };

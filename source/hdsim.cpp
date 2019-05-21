@@ -44,6 +44,11 @@ namespace
 			result.push_back(v[i]);
 		v = result;
 	}
+
+	double GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values)
+	{
+		return interp_values[0].first.velocity*0.9;
+	}
 }
 
 hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& edges, Interpolation const& interp,
@@ -89,6 +94,13 @@ hdsim::~hdsim()
 
 namespace
 {
+	void MoveGrid(double vgrid, std::vector<double> &edges,double dt)
+	{
+		size_t N = edges.size();
+		for (size_t i = 0; i < N; ++i)
+			edges[i] += vgrid * dt;
+	}
+
 	double GetTimeStep(vector<Primitive> const& cells, vector<double> const& edges, IdealGas const& eos, double cfl,
 		SourceTerm const&source,double &dt_suggest)
 	{
@@ -111,12 +123,12 @@ namespace
 		return cfl/dt_1;
 	}
 
-	void GetFluxes(vector<pair<Primitive,Primitive> > const& interp_values, RiemannSolver const&rs,std::vector<Extensive> &res,IdealGas const& eos)
+	void GetFluxes(vector<pair<Primitive,Primitive> > const& interp_values, RiemannSolver const&rs,std::vector<Extensive> &res,IdealGas const& eos,double vgrid=0)
 	{
 		size_t N = interp_values.size();
 		res.resize(N);
 		for (int i = 0; i < N; ++i)
-			res[i] = rs.SolveRS(interp_values[i].first, interp_values[i].second,eos);
+			res[i] = rs.SolveRS(interp_values[i].first, interp_values[i].second,eos,vgrid);
 	}
 
 	void UpdateExtensives(vector<Extensive> &cells, std::vector<Extensive> &fluxes,double dt,Geometry const& geo,
@@ -236,7 +248,8 @@ void hdsim::TimeAdvance()
 void hdsim::TimeAdvance2()
 {
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
-	GetFluxes(interp_values_, rs_, fluxes_, eos_);
+	double vgrid = GetVGrid(interp_values_);
+	GetFluxes(interp_values_, rs_, fluxes_, eos_,vgrid);
 
 	/*if (BoundarySolution_ != 0)
 	{
@@ -251,14 +264,15 @@ void hdsim::TimeAdvance2()
 		dt *= 0.005;
 
 	vector<Extensive> old_extensive(extensives_);
-
+	std::vector<double> oldedges(edges_);
 	UpdateExtensives(extensives_, fluxes_, 0.5*dt,geo_,edges_);
+	MoveGrid(vgrid,edges_,0.5*dt);
 	source_.CalcForce(edges_, cells_, time_, extensives_, 0.5*dt);	
 	UpdateCells(extensives_, edges_, eos_, cells_, geo_);
 	time_ += 0.5*dt;
 
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
-	GetFluxes(interp_values_, rs_, fluxes_,eos_);
+	GetFluxes(interp_values_, rs_, fluxes_,eos_,vgrid);
 	/*if (BoundarySolution_ != 0)
 	{
 		pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
@@ -273,6 +287,8 @@ void hdsim::TimeAdvance2()
 	extensives_ = old_extensive;
 	UpdateExtensives(extensives_, fluxes_, dt,geo_,edges_);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
+	edges_ = oldedges;
+	MoveGrid(vgrid,edges_,dt);
 #ifdef RICH_MPI
 	RedistributeExtensives(extensives_,edges_,cells_);
 #endif
