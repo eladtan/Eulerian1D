@@ -102,14 +102,14 @@ namespace
 	}
 
 	double GetTimeStep(vector<Primitive> const& cells, vector<double> const& edges, IdealGas const& eos, double cfl,
-		SourceTerm const&source,double &dt_suggest)
+		SourceTerm const&source,double &dt_suggest,double vgrid = 0)
 	{
 		double force_inverse_dt = source.GetInverseTimeStep(edges);
 		double dt_1 = eos.dp2c(cells[0].density, cells[0].pressure) / (edges[1] - edges[0]);
 		size_t N = cells.size();
 		for (size_t i = 1; i < N; ++i)
 		{
-			dt_1 = std::max(dt_1,2*(std::abs(cells[i].velocity)+ eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
+			dt_1 = std::max(dt_1,2*(std::abs(cells[i].velocity-vgrid)+ eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
 		}
 		dt_1 = max(dt_1, force_inverse_dt);
 		if (dt_suggest > 0)
@@ -249,6 +249,11 @@ void hdsim::TimeAdvance2()
 {
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
 	double vgrid = GetVGrid(interp_values_);
+#ifdef RICH_MPI
+	double torecv = 0;
+	MPI_Scatter(&vgrid,1,MPI_DOUBLE,&torecv,1,MPI_DOUBLE,0, MPI_COMM_WORLD);
+	vgrid = torecv;
+#endif
 	GetFluxes(interp_values_, rs_, fluxes_, eos_,vgrid);
 
 	/*if (BoundarySolution_ != 0)
@@ -259,7 +264,7 @@ void hdsim::TimeAdvance2()
 		if (BoundarySolution_->ShouldCalc().second)
 			rs_values_.back() = bvalues.second;
 	}*/
-	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_,dt_suggest_);
+	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_,dt_suggest_,vgrid);
 	if (cycle_ == 0)
 		dt *= 0.005;
 
