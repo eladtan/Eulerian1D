@@ -263,8 +263,8 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 			}
 			else
 			{
-				double rho_fan = left.density*std::pow(2.0 / (gamma_ + 1) + (gamma_ - 1)*left.velocity / ((gamma_ + 1)*al), 2.0 / (gamma_ - 1));
-				double v = 2.0*(al + (gamma_ - 1)*left.velocity*0.5) / (gamma_ + 1);
+				double rho_fan = left.density*std::pow(2.0 / (gamma_ + 1) + (gamma_ - 1)*(left.velocity-vface) / ((gamma_ + 1)*al), 2.0 / (gamma_ - 1));
+				double v = 2.0*(al + (gamma_ - 1)*left.velocity*0.5+vface) / (gamma_ + 1);
 				double p = left.pressure*std::pow(rho_fan / left.density, gamma_);
 				Extensive res;
 				res.mass = (v-vface)*rho_fan;
@@ -318,8 +318,8 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 			double Shr = right.velocity + ar;
 			if (Shr > vface)
 			{
-				double rho_fan = right.density*std::pow(2.0 / (gamma_ + 1) - (gamma_ - 1)*right.velocity / ((gamma_ + 1)*ar), 2.0 / (gamma_ - 1));
-				double v = 2.0*(-ar + (gamma_ - 1)*right.velocity*0.5) / (gamma_ + 1);
+				double rho_fan = right.density*std::pow(2.0 / (gamma_ + 1) - (gamma_ - 1)*(right.velocity-vface) / ((gamma_ + 1)*ar), 2.0 / (gamma_ - 1));
+				double v = 2.0*(-ar + (gamma_ - 1)*right.velocity*0.5 + vface) / (gamma_ + 1);
 				double p = right.pressure*std::pow(rho_fan / right.density, gamma_);
 				Extensive res;
 				res.mass = (v-vface) * rho_fan;
