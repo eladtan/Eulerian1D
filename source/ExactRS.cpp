@@ -211,7 +211,7 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 	bool left_shock = p_u_star.first > left.pressure;
 	bool right_shock = p_u_star.first > right.pressure;
 	// Find branch on
-	if (p_u_star.second > 0)
+	if (p_u_star.second > vface)
 	{
 		double al = std::sqrt(left.pressure*gamma_ / left.density);
 		if (left_shock)
