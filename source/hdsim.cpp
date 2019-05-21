@@ -5,6 +5,7 @@
 #ifdef RICH_MPI
 #include "mpi_comm.hpp"
 #endif
+#include <cassert>
 namespace
 {
 	template <class T> vector<T> unique(vector<T> const& v)
@@ -171,16 +172,17 @@ namespace
 			cells[i].velocity = extensive[i].momentum / extensive[i].mass;
 			cells[i].energy = extensive[i].et / extensive[i].mass;
 			double et = cells[i].energy;
-			double et2 = extensive[i].energy / extensive[i].mass - 0.5 * cells[i].velocity*cells[i].velocity;
 			if (ShouldUseEntropy(cells[i], i,et,eos.dp2e(cells[i].density,eos.sd2p(cells[i].entropy,cells[i].density))))
 				cells[i].pressure = eos.sd2p(extensive[i].entropy/extensive[i].mass, cells[i].density);
 			else
 				cells[i].pressure = eos.de2p(cells[i].density, et);
 			cells[i].pressure = std::max(cells[i].pressure, cells[i].density*cells[i].velocity*cells[i].velocity*0.0001);
+			assert(cells[i].pressure > 0);
 			et = extensive[i].mass*eos.dp2e(cells[i].density, cells[i].pressure);
 			extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass +	et;
 			extensive[i].et = et;
 			cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
+			assert(cells[i].entropy > 0);
 			extensive[i].entropy = cells[i].entropy*extensive[i].mass;
 		}
 	}
