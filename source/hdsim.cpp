@@ -47,7 +47,7 @@ namespace
 
 	double GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values)
 	{
-		return interp_values[0].first.velocity*0.9;
+		return interp_values[0].first.velocity*0.99;
 	}
 }
 
