@@ -252,9 +252,7 @@ void hdsim::TimeAdvance2()
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
 	double vgrid = GetVGrid(interp_values_);
 #ifdef RICH_MPI
-	double torecv = 0;
 	MPI_Bcast(&vgrid,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
-	vgrid = torecv;
 #endif
 	GetFluxes(interp_values_, rs_, fluxes_, eos_,vgrid);
 
