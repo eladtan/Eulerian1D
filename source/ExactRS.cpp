@@ -130,6 +130,7 @@ namespace
 			eo.AddEntry("Right density", right.density);
 			eo.AddEntry("Right pressure", right.pressure);
 			eo.AddEntry("Right velocity", right.velocity);
+			eo.AddEntry("Init pressure in bisection", guess);
 			throw eo;
 		}
 		int counter = 0;
