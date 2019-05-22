@@ -192,7 +192,7 @@ namespace
 			res.first -= std::max(std::min(dp, res.first*0.5), -0.5*res.first);
 			value = GetValue(left, right, res.first, gamma);
 			++counter;
-			if (counter > 20)
+			if (counter > 30)
 			{
 				res.first = Bisection(left, right, gamma, max_scale, minp, res.first);
 				break;
