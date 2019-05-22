@@ -115,8 +115,8 @@ namespace
 		double a = std::min(left.pressure, right.pressure)*1e-10;
 		double b = (left.pressure + right.pressure + left.density*left.velocity*left.velocity +
 			right.density*right.velocity*right.velocity)*10;*/
-		double a = guess*0.2;
-		double b = guess * 5;
+		double a = guess*0.1;
+		double b = guess * 10;
 		double c = guess;
 		double dp = 0;
 		double valuec = GetValue(left, right, b , gamma);
@@ -192,7 +192,7 @@ namespace
 			res.first -= std::max(std::min(dp, res.first*0.5), -0.5*res.first);
 			value = GetValue(left, right, res.first, gamma);
 			++counter;
-			if (counter > 10)
+			if (counter > 20)
 			{
 				res.first = Bisection(left, right, gamma, max_scale, minp, res.first);
 				break;
