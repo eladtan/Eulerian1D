@@ -56,11 +56,11 @@ namespace
 		double csr = fastsqrt(gamma*right.pressure / right.density);
 		double res;
 		// First try Ppvrs
-		res = 0.5*(Pmax + Pmin) + 0.125*(left.velocity - right.velocity)*(left.density + right.density)*
+		double pvrs = 0.5*(Pmax + Pmin) + 0.125*(left.velocity - right.velocity)*(left.density + right.density)*
 			(csl + csr);
-		if (Q<2 && res>=Pmin && res <= Pmax)
-			return res;
-		if (res <= Pmin) // Use Two rarefactions
+		if (Q<2 && pvrs >=Pmin && pvrs <= Pmax)
+			return pvrs;
+		if (pvrs <= Pmin) // Use Two rarefactions
 		{
 			double z = (gamma - 1) / (2 * gamma);
 			res = std::pow((csl + csr - (gamma - 1)*(right.velocity - left.velocity)*0.5) / (csl*
@@ -76,6 +76,8 @@ namespace
 			double gl = fastsqrt(Al / (res + Bl));
 			double gr = fastsqrt(Ar / (res + Br));
 			res = (gl*left.pressure + gr*right.pressure + left.velocity - right.velocity) / (gl + gr);
+			if (res < Pmin)
+				res = pvrs;
 		}
 		return res;
 	}
