@@ -122,7 +122,16 @@ namespace
 		double valuec = GetValue(left, right, b , gamma);
 		double valuea = GetValue(left, right, a, gamma);
 		if (valuea*valuec > 0)
-			throw("Same sign in RS");
+		{
+			UniversalError eo("Same sign in RS");
+			eo.AddEntry("Left density", left.density);
+			eo.AddEntry("Left pressure", left.pressure);
+			eo.AddEntry("Left velocity", left.velocity);
+			eo.AddEntry("Right density", right.density);
+			eo.AddEntry("Right pressure", right.pressure);
+			eo.AddEntry("Right velocity", right.velocity);
+			throw eo;
+		}
 		int counter = 0;
 		while (((b-a) > 1e-10*(minp + c)) || (std::abs(valuec) > 1e-7*max_scale))
 		{
