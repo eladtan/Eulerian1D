@@ -159,7 +159,7 @@ namespace
 		double soundspeeds = 2 * (fastsqrt(gamma*left.pressure / left.density) + fastsqrt(gamma*right.pressure / right.density)) / (gamma - 1);
 		if (dv >= soundspeeds)
 		{
-			return std::pair<double, double>(0, 0);
+			return std::pair<double, double>(0., 0.);
 		}
 		std::pair<double, double> res;
 		res.first = GetFirstGuess(left, right, gamma);
@@ -210,8 +210,12 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 	std::pair<double, double> p_u_star = Get_p_u_star(left, right, gamma_);
 	bool left_shock = p_u_star.first > left.pressure;
 	bool right_shock = p_u_star.first > right.pressure;
-	// Find branch on
+	
 	Extensive res;
+	// Did we form a vacuum? 
+	if (p_u_star.first == 0.)
+		return res;
+	// Find branch on
 	if (p_u_star.second > vface)
 	{
 		double al = std::sqrt(left.pressure*gamma_ / left.density);
