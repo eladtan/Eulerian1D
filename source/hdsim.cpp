@@ -138,22 +138,32 @@ namespace
 		size_t N = cells.size();
 		for (size_t i = 0; i < N; ++i)
 		{
-			double v = cells[i].momentum / cells[i].mass;
-			double dP = -(fluxes[i + 1].momentum * geo.GetArea(edges[i+1]) - fluxes[i].momentum * geo.GetArea(edges[i]));
+			//double v = cells[i].momentum / cells[i].mass;
+			
 			double oldEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
-			cells[i].momentum += dP*dt;
+			double newP = cells[i].momentum + fluxes[i].momentum * geo.GetArea(edges[i])*dt;
+			double newM = cells[i].mass + fluxes[i].mass* geo.GetArea(edges[i])*dt;
+			double newEk0 = newP * newP*0.5 / newM;
+			newP = cells[i].momentum - fluxes[i+1].momentum * geo.GetArea(edges[i+1])*dt;
+			newM = cells[i].mass - fluxes[i+1].mass* geo.GetArea(edges[i+1])*dt;
+			double newEk1 = newP * newP*0.5 / newM;
+
+			double dP = -(fluxes[i + 1].momentum * geo.GetArea(edges[i + 1]) - fluxes[i].momentum * geo.GetArea(edges[i]))*dt;
+			cells[i].momentum += dP;
 			double dE = -(fluxes[i + 1].energy* geo.GetArea(edges[i + 1]) - fluxes[i].energy* geo.GetArea(edges[i]))*dt;
 			cells[i].energy += dE;
-			cells[i].mass += -(fluxes[i + 1].mass* geo.GetArea(edges[i + 1]) - fluxes[i].mass* geo.GetArea(edges[i]))*dt;
-			double newEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
-			cells[i].et += dE - 0.5*(newEk - oldEk);	
+			double mdot = -(fluxes[i + 1].mass* geo.GetArea(edges[i + 1]) - fluxes[i].mass* geo.GetArea(edges[i]))*dt;
+			cells[i].mass += mdot;
+		//	double newEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
+			//cells[i].et += dE - v * dP + 0.5*v*v*mdot;
+			cells[i].et += dE - newEk1 - newEk0 + oldEk;
 			cells[i].entropy += -(fluxes[i + 1].entropy* geo.GetArea(edges[i + 1]) - fluxes[i].entropy* geo.GetArea(edges[i]))*dt;
 		}
 	}
 
-	bool ShouldUseEntropy(Primitive const& cell, size_t index,double et,double EntropyEt)
+	bool ShouldUseEntropy(double dv, double et)
 	{
-		double ek = cell.velocity*cell.velocity;
+		double ek = dv*dv;
 		if (et < 0)
 			return true;
 		if (et > 0.001*ek)
@@ -172,18 +182,31 @@ namespace
 			cells[i].velocity = extensive[i].momentum / extensive[i].mass;
 			cells[i].energy = extensive[i].et / extensive[i].mass;
 			double et = cells[i].energy;
-			if (ShouldUseEntropy(cells[i], i,et,eos.dp2e(cells[i].density,eos.sd2p(cells[i].entropy,cells[i].density))))
-				cells[i].pressure = eos.sd2p(extensive[i].entropy/extensive[i].mass, cells[i].density);
+			bool entropy_use = false;
+			if (i == 0)
+				entropy_use = ShouldUseEntropy(std::abs(cells[i].velocity - cells[i + 1].velocity), et);
 			else
+				if (i == (N - 1))
+					entropy_use = ShouldUseEntropy(std::abs(cells[i].velocity - cells[i - 1].velocity), et);
+				else
+					entropy_use = ShouldUseEntropy(std::max(std::abs(cells[i].velocity - cells[i - 1].velocity), std::abs(cells[i].velocity - cells[i + 1].velocity)), et);
+			if (entropy_use)
+			{
+				cells[i].pressure = eos.sd2p(extensive[i].entropy / extensive[i].mass, cells[i].density);
+				cells[i].energy = eos.dp2e(cells[i].density, cells[i].pressure);
+				et = extensive[i].mass*cells[i].energy;
+				extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass + et;
+				extensive[i].et = et;
+			}
+			else
+			{
 				cells[i].pressure = eos.de2p(cells[i].density, et);
-			cells[i].pressure = std::max(cells[i].pressure, cells[i].density*cells[i].velocity*cells[i].velocity*0.0001);
-			assert(cells[i].pressure > 0);
-			et = extensive[i].mass*eos.dp2e(cells[i].density, cells[i].pressure);
-			extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass +	et;
-			extensive[i].et = et;
-			cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
+				cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
+				extensive[i].entropy = cells[i].entropy*extensive[i].mass;
+			}
+			//cells[i].pressure = std::max(cells[i].pressure, cells[i].density*cells[i].velocity*cells[i].velocity*0.0001);
+			assert(cells[i].pressure > 0);			
 			assert(cells[i].entropy > 0);
-			extensive[i].entropy = cells[i].entropy*extensive[i].mass;
 		}
 	}
 }
@@ -251,6 +274,7 @@ void hdsim::TimeAdvance2()
 {
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
 	double vgrid = GetVGrid(interp_values_);
+	vgrid = 0;
 #ifdef RICH_MPI
 	MPI_Bcast(&vgrid,1,MPI_DOUBLE,0,MPI_COMM_WORLD);
 #endif
