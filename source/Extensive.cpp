@@ -9,6 +9,16 @@ Extensive::~Extensive()
 {
 }
 
+Extensive & Extensive::operator-=(const Extensive & rhs)
+{
+	this->mass -= rhs.mass;
+	this->momentum -= rhs.momentum;
+	this->energy -= rhs.energy;
+	this->entropy -= rhs.entropy;
+	this->et -= rhs.et;
+	return *this;
+}
+
 Extensive & Extensive::operator+=(const Extensive & rhs)
 {
 	this->mass += rhs.mass;

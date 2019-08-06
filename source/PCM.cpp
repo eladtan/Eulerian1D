@@ -9,7 +9,12 @@ PCM::~PCM()
 {}
 
 void PCM::GetInterpolatedValues(vector<Primitive> const & cells, vector<double> const & edges,
-	vector<pair<Primitive, Primitive> >& values, double time) const
+	vector<pair<Primitive, Primitive> >& values, double time
+#ifdef RICH_MPI
+	, std::array<Primitive, NGHOSTCELLS * 2> const& ghost_cells,
+	std::array<double, 2 * NGHOSTCELLS> const& ghost_edges
+#endif
+) const
 {
 	size_t N = edges.size();
 	values.resize(N);

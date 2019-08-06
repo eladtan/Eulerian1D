@@ -53,3 +53,12 @@ Primitive& Primitive::operator=(Primitive const & other)
 	return *this;
 }
 
+Primitive operator*(Primitive const&p, double s)
+{
+	return Primitive(p.density*s, p.pressure*s, p.velocity*s, p.entropy*s, p.energy*s, p.sticker);
+}
+
+Primitive operator*(double s, Primitive const&p)
+{
+	return p * s;
+}

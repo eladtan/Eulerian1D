@@ -34,15 +34,20 @@ namespace
 	}
 }
 
-MinMod::MinMod(Boundary const& boundary):boundary_(boundary)
+MinMod::MinMod(Boundary const& boundary) :boundary_(boundary)
 {}
 
 
 MinMod::~MinMod()
 {}
 
-void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<double> const & edges, 
-	vector<pair<Primitive, Primitive> >& values,double time) const
+void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<double> const & edges,
+	vector<pair<Primitive, Primitive> >& values, double time
+#ifdef RICH_MPI
+	, std::array<Primitive, NGHOSTCELLS * 2> const& ghost_cells,
+	std::array<double, 2 * NGHOSTCELLS> const& ghost_edges
+#endif
+) const
 {
 	size_t N = edges.size();
 	values.resize(N);
@@ -50,27 +55,25 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 	// Do bulk edges
 	for (size_t i = 1; i < N - 2; ++i)
 	{
-		slope = GetSlope(cells[i - 1], cells[i], cells[i + 1], edges[i - 1], edges[i], 
+		slope = GetSlope(cells[i - 1], cells[i], cells[i + 1], edges[i - 1], edges[i],
 			edges[i + 1], edges[i + 2]);
 		values[i].second = cells[i] - slope * (0.5*(edges[i + 1] - edges[i]));
-		values[i+1].first = cells[i] + slope * (0.5*(edges[i + 1] - edges[i]));
+		values[i + 1].first = cells[i] + slope * (0.5*(edges[i + 1] - edges[i]));
 	}
 	// Do boundaries
 #ifdef RICH_MPI
-	std::array<Primitive, 4> ghost_cells = SendRecvPrimitive(cells);
-	std::array<double, 4> ghost_edges = SendRecvEdges(edges);
 	int rank = 0, ws = 0;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &ws);
 	if (rank == 0)
 	{
-		slope = GetSlope(cells[N - 3], cells[N - 2], ghost_cells[2], edges[N - 3], edges[N - 2],
-			edges[N - 1], ghost_edges[2]);
+		slope = GetSlope(cells[N - 3], cells[N - 2], ghost_cells[NGHOSTCELLS], edges[N - 3], edges[N - 2],
+			edges[N - 1], ghost_edges[NGHOSTCELLS]);
 		values[N - 1].first = cells[N - 2] + slope * 0.5*(edges[N - 1] - edges[N - 2]);
 		values[N - 2].second = cells[N - 2] - slope * 0.5*(edges[N - 1] - edges[N - 2]);
-		slope = GetSlope(cells[N - 2], ghost_cells[2], ghost_cells[3], edges[N - 2], edges[N - 1],
-			ghost_edges[2], ghost_edges[3]);
-		values[N - 1].second = ghost_cells[2] - slope * 0.5 * (ghost_edges[2] - edges[N - 1]);
+		slope = GetSlope(cells[N - 2], ghost_cells[NGHOSTCELLS], ghost_cells[NGHOSTCELLS + 1], edges[N - 2], edges[N - 1],
+			ghost_edges[NGHOSTCELLS], ghost_edges[NGHOSTCELLS + 1]);
+		values[N - 1].second = ghost_cells[NGHOSTCELLS] - slope * 0.5 * (ghost_edges[NGHOSTCELLS] - edges[N - 1]);
 		vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0, time);
 		values[0].first = left[0];
 		values[0].second = left[1];
@@ -80,13 +83,13 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 	{
 		if (rank == (ws - 1))
 		{
-			slope = GetSlope(ghost_cells[1], cells[0], cells[1], ghost_edges[1], edges[0],
+			slope = GetSlope(ghost_cells[NGHOSTCELLS - 1], cells[0], cells[1], ghost_edges[NGHOSTCELLS - 1], edges[0],
 				edges[1], edges[2]);
 			values[1].first = cells[0] + slope * 0.5*(edges[1] - edges[0]);
 			values[0].second = cells[0] - slope * 0.5*(edges[1] - edges[0]);
-			slope = GetSlope(ghost_cells[0], ghost_cells[1], cells[0], ghost_edges[0], ghost_edges[1],
+			slope = GetSlope(ghost_cells[NGHOSTCELLS - 2], ghost_cells[NGHOSTCELLS - 1], cells[0], ghost_edges[NGHOSTCELLS - 2], ghost_edges[NGHOSTCELLS - 1],
 				edges[0], edges[1]);
-			values[0].first = ghost_cells[1] + slope * 0.5 * (edges[0] - ghost_edges[1]);
+			values[0].first = ghost_cells[NGHOSTCELLS - 1] + slope * 0.5 * (edges[0] - ghost_edges[NGHOSTCELLS - 1]);
 			vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size() - 1, time);
 			values[N - 2].second = right[0];
 			values[N - 1].first = right[1];
@@ -94,21 +97,21 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 		}
 		else
 		{
-			slope = GetSlope(ghost_cells[1], cells[0], cells[1], ghost_edges[1], edges[0],
+			slope = GetSlope(ghost_cells[NGHOSTCELLS - 1], cells[0], cells[1], ghost_edges[NGHOSTCELLS - 1], edges[0],
 				edges[1], edges[2]);
 			values[1].first = cells[0] + slope * 0.5*(edges[1] - edges[0]);
 			values[0].second = cells[0] - slope * 0.5*(edges[1] - edges[0]);
-			slope = GetSlope(ghost_cells[0], ghost_cells[1], cells[0], ghost_edges[0], ghost_edges[1],
+			slope = GetSlope(ghost_cells[NGHOSTCELLS - 2], ghost_cells[NGHOSTCELLS - 1], cells[0], ghost_edges[NGHOSTCELLS - 2], ghost_edges[NGHOSTCELLS - 1],
 				edges[0], edges[1]);
-			values[0].first = ghost_cells[1] + slope * 0.5 * (edges[0] - ghost_edges[1]);
+			values[0].first = ghost_cells[NGHOSTCELLS - 1] + slope * 0.5 * (edges[0] - ghost_edges[NGHOSTCELLS - 1]);
 
-			slope = GetSlope(cells[N-3], cells[N-2], ghost_cells[2], edges[N-3],edges[N-2],
-				edges[N-1], ghost_edges[2]);
-			values[N-1].first = cells[N-2] + slope * 0.5*(edges[N-1] - edges[N-2]);
-			values[N-2].second = cells[N-2] - slope * 0.5*(edges[N-1] - edges[N-2]);
-			slope = GetSlope(cells[N - 2], ghost_cells[2], ghost_cells[3], edges[N - 2], edges[N - 1],
-				ghost_edges[2], ghost_edges[3]);
-			values[N-1].second = ghost_cells[2] - slope * 0.5 * (ghost_edges[2] - edges[N-1]);
+			slope = GetSlope(cells[N - 3], cells[N - 2], ghost_cells[NGHOSTCELLS], edges[N - 3], edges[N - 2],
+				edges[N - 1], ghost_edges[NGHOSTCELLS]);
+			values[N - 1].first = cells[N - 2] + slope * 0.5*(edges[N - 1] - edges[N - 2]);
+			values[N - 2].second = cells[N - 2] - slope * 0.5*(edges[N - 1] - edges[N - 2]);
+			slope = GetSlope(cells[N - 2], ghost_cells[NGHOSTCELLS], ghost_cells[NGHOSTCELLS + 1], edges[N - 2], edges[N - 1],
+				ghost_edges[NGHOSTCELLS], ghost_edges[NGHOSTCELLS + 1]);
+			values[N - 1].second = ghost_cells[NGHOSTCELLS] - slope * 0.5 * (ghost_edges[NGHOSTCELLS] - edges[N - 1]);
 		}
 	}
 #else

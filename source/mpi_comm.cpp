@@ -70,7 +70,7 @@ namespace
 		return res;
 	}
 
-	std::vector<Extensive> VecDouble2Extensive(std::vector<double> const& data,std::vector<Primitive> &cells)
+	std::vector<Extensive> VecDouble2Extensive(std::vector<double> const& data, std::vector<Primitive> &cells)
 	{
 		size_t N = data.size() / 7;
 		if (N * 7 != data.size())
@@ -82,7 +82,7 @@ namespace
 			for (size_t j = 0; j < 5; ++j)
 				temp[j] = data[i * 7 + j];
 			res[i] = Array2Extensive(temp);
-			cells[i].LastCool= data[i * 7 + 5];
+			cells[i].LastCool = data[i * 7 + 5];
 			cells[i].sticker = static_cast<unsigned char>(data[i * 7 + 6]);
 		}
 		return res;
@@ -118,158 +118,102 @@ namespace
 	}
 }
 
-std::array<Primitive, 4> SendRecvPrimitive(std::vector<Primitive> const& cells)
-{
-	int rank = 0,ws=0;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &ws);
-	std::array<double, 14> data,data2,recv;
-	std::array<double, 7> temp;
-	std::array<Primitive, 4> res;
-	MPI_Request req,req2;
-	assert(cells.size() > 2);
-	if (rank == 0)
-	{
-		size_t N = cells.size() - 1;
-		temp = Primitive2Array(cells[N-1]);
-		std::copy(temp.begin(), temp.end(), data.begin());
-		temp = Primitive2Array(cells[N]);
-		std::copy(temp.begin(), temp.end(), data.begin()+7);
-		MPI_Isend(&data[0], 14, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD,&req);
-		MPI_Recv(&recv[0], 14, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		std::copy(recv.begin(), recv.begin() + 7, temp.begin());
-		res[2] = Array2Primitive(temp);
-		std::copy(recv.begin() + 7, recv.end() , temp.begin());
-		res[3] = Array2Primitive(temp);
-		MPI_Wait(&req,MPI_STATUS_IGNORE);
-	}
-	else
-	{
-		if (rank == (ws - 1))
-		{
-			temp = Primitive2Array(cells[0]);
-			std::copy(temp.begin(), temp.end(), data.begin());
-			temp = Primitive2Array(cells[1]);
-			std::copy(temp.begin(), temp.end(), data.begin() + 7);
-			MPI_Isend(&data[0], 14, MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, &req);
-			MPI_Recv(&recv[0], 14, MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			std::copy(recv.begin(), recv.begin() + 7, temp.begin());
-			res[0] = Array2Primitive(temp);
-			std::copy(recv.begin() + 7, recv.end(), temp.begin());
-			res[1] = Array2Primitive(temp);
-			MPI_Wait(&req, MPI_STATUS_IGNORE);
-		}
-		else
-		{
-			MPI_Status status;
-			size_t N = cells.size() - 1;
-			temp = Primitive2Array(cells[N - 1]);
-			std::copy(temp.begin(), temp.end(), data2.begin());
-			temp = Primitive2Array(cells[N]);
-			std::copy(temp.begin(), temp.end(), data2.begin() + 7);
-			temp = Primitive2Array(cells[0]);
-			std::copy(temp.begin(), temp.end(), data.begin());
-			temp = Primitive2Array(cells[1]);
-			std::copy(temp.begin(), temp.end(), data.begin() + 7);
-			MPI_Isend(&data[0], 14, MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, &req);
-			MPI_Isend(&data2[0], 14, MPI_DOUBLE, rank + 1, 0, MPI_COMM_WORLD, &req2);
-			MPI_Probe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
-			MPI_Recv(&recv[0], 14, MPI_DOUBLE, status.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			if (status.MPI_SOURCE == (rank - 1))
-			{
-				std::copy(recv.begin(), recv.begin() + 7, temp.begin());
-				res[0] = Array2Primitive(temp);
-				std::copy(recv.begin() + 7, recv.end(), temp.begin());
-				res[1] = Array2Primitive(temp);
-			}
-			else
-			{
-				std::copy(recv.begin(), recv.begin() + 7, temp.begin());
-				res[2] = Array2Primitive(temp);
-				std::copy(recv.begin() + 7, recv.end(), temp.begin());
-				res[3] = Array2Primitive(temp);
-			}
-			MPI_Probe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
-			MPI_Recv(&recv[0], 14, MPI_DOUBLE, status.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			if (status.MPI_SOURCE == (rank - 1))
-			{
-				std::copy(recv.begin(), recv.begin() + 7, temp.begin());
-				res[0] = Array2Primitive(temp);
-				std::copy(recv.begin() + 7, recv.end(), temp.begin());
-				res[1] = Array2Primitive(temp);
-			}
-			else
-			{
-				std::copy(recv.begin(), recv.begin() + 7, temp.begin());
-				res[2] = Array2Primitive(temp);
-				std::copy(recv.begin() + 7, recv.end(), temp.begin());
-				res[3] = Array2Primitive(temp);
-			}
-			MPI_Wait(&req, MPI_STATUS_IGNORE);
-			MPI_Wait(&req2, MPI_STATUS_IGNORE);
-		}
-	}
-	MPI_Barrier(MPI_COMM_WORLD);
-	return res;
-}
-
-std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
+std::array<Primitive, NGHOSTCELLS * 2> SendRecvPrimitive(std::vector<Primitive> const& cells)
 {
 	int rank = 0, ws = 0;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &ws);
-	std::array<double, 4> res;
-	std::array<double, 2> recv;
-	MPI_Request req,req2;
-	assert(edges.size() > 3);
+	std::array<double, 7 * NGHOSTCELLS> data, data2, recv;
+	std::array<double, 7> temp;
+	std::array<Primitive, NGHOSTCELLS * 2> res;
+	MPI_Request req, req2;
+	assert(cells.size() > 2);
 	if (rank == 0)
 	{
-		size_t N = edges.size() - 2;
-		MPI_Isend(&edges[N-1], 2, MPI_DOUBLE, 1, 1, MPI_COMM_WORLD, &req);
-		MPI_Recv(&recv[0], 2, MPI_DOUBLE, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		res[2] = recv[0];
-		res[3] = recv[1];
+		size_t N = cells.size();
+		for (size_t i = 0; i < NGHOSTCELLS; ++i)
+		{
+			temp = Primitive2Array(cells[N - NGHOSTCELLS + i]);
+			std::copy(temp.begin(), temp.end(), data.begin() + i * 7);
+		}
+		MPI_Isend(&data[0], 7 * NGHOSTCELLS, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &req);
+		MPI_Recv(&recv[0], 7 * NGHOSTCELLS, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		for (size_t i = 0; i < NGHOSTCELLS; ++i)
+		{
+			std::copy(recv.begin() + 7 * i, recv.begin() + 7 * (i + 1), temp.begin());
+			res[NGHOSTCELLS + i] = Array2Primitive(temp);
+		}
 		MPI_Wait(&req, MPI_STATUS_IGNORE);
 	}
 	else
 	{
 		if (rank == (ws - 1))
 		{
-			MPI_Isend(&edges[1], 2, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, &req);
-			MPI_Recv(&recv[0],2, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			res[0] = recv[0];
-			res[1] = recv[1];
+			for (size_t i = 0; i < NGHOSTCELLS; ++i)
+			{
+				temp = Primitive2Array(cells[i]);
+				std::copy(temp.begin(), temp.end(), data.begin() + i * 7);
+			}
+			MPI_Isend(&data[0], 7 * NGHOSTCELLS, MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, &req);
+			MPI_Recv(&recv[0], 7 * NGHOSTCELLS, MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			for (size_t i = 0; i < NGHOSTCELLS; ++i)
+			{
+				std::copy(recv.begin() + 7 * i, recv.begin() + 7 * (i + 1), temp.begin());
+				res[i] = Array2Primitive(temp);
+			}
 			MPI_Wait(&req, MPI_STATUS_IGNORE);
 		}
 		else
 		{
 			MPI_Status status;
-			size_t N = edges.size() - 2;
-			MPI_Isend(&edges[1], 2, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, &req);
-			MPI_Isend(&edges[N-1], 2, MPI_DOUBLE, rank + 1, 1, MPI_COMM_WORLD, &req2);
-			MPI_Probe(MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
-			MPI_Recv(&recv[0], 2, MPI_DOUBLE, status.MPI_SOURCE, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			size_t N = cells.size();
+			for (size_t i = 0; i < NGHOSTCELLS; ++i)
+			{
+				temp = Primitive2Array(cells[N - NGHOSTCELLS + i]);
+				std::copy(temp.begin(), temp.end(), data2.begin() + i * 7);
+			}
+			for (size_t i = 0; i < NGHOSTCELLS; ++i)
+			{
+				temp = Primitive2Array(cells[i]);
+				std::copy(temp.begin(), temp.end(), data.begin() + i * 7);
+			}
+			MPI_Isend(&data[0], 7 * NGHOSTCELLS, MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, &req);
+			MPI_Isend(&data2[0], 7 * NGHOSTCELLS, MPI_DOUBLE, rank + 1, 0, MPI_COMM_WORLD, &req2);
+			MPI_Probe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+			MPI_Recv(&recv[0], 7 * NGHOSTCELLS, MPI_DOUBLE, status.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			if (status.MPI_SOURCE == (rank - 1))
 			{
-				res[0] = recv[0];
-				res[1] = recv[1];
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+				{
+					std::copy(recv.begin() + 7 * i, recv.begin() + 7 * (i + 1), temp.begin());
+					res[i] = Array2Primitive(temp);
+				}
 			}
 			else
 			{
-				res[2] = recv[0];
-				res[3] = recv[1];
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+				{
+					std::copy(recv.begin() + 7 * i, recv.begin() + 7 * (i + 1), temp.begin());
+					res[NGHOSTCELLS + i] = Array2Primitive(temp);
+				}
 			}
-			MPI_Probe(MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
-			MPI_Recv(&recv[0], 2, MPI_DOUBLE, status.MPI_SOURCE, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Probe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+			MPI_Recv(&recv[0], 7 * NGHOSTCELLS, MPI_DOUBLE, status.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			if (status.MPI_SOURCE == (rank - 1))
 			{
-				res[0] = recv[0];
-				res[1] = recv[1];
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+				{
+					std::copy(recv.begin() + 7 * i, recv.begin() + 7 * (i + 1), temp.begin());
+					res[i] = Array2Primitive(temp);
+				}
 			}
 			else
 			{
-				res[2] = recv[0];
-				res[3] = recv[1];
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+				{
+					std::copy(recv.begin() + 7 * i, recv.begin() + 7 * (i + 1), temp.begin());
+					res[NGHOSTCELLS + i] = Array2Primitive(temp);
+				}
 			}
 			MPI_Wait(&req, MPI_STATUS_IGNORE);
 			MPI_Wait(&req2, MPI_STATUS_IGNORE);
@@ -279,7 +223,73 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 	return res;
 }
 
-void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &edges,std::vector<Primitive> &pcells)
+std::array<double, NGHOSTCELLS * 2> SendRecvEdges(std::vector<double> const & edges)
+{
+	int rank = 0, ws = 0;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &ws);
+	std::array<double, NGHOSTCELLS * 2> res;
+	std::array<double, NGHOSTCELLS> recv;
+	MPI_Request req, req2;
+	assert(edges.size() > 3);
+	if (rank == 0)
+	{
+		size_t N = edges.size() - 1;
+		MPI_Isend(&edges[N - NGHOSTCELLS], NGHOSTCELLS, MPI_DOUBLE, 1, 1, MPI_COMM_WORLD, &req);
+		MPI_Recv(&recv[0], NGHOSTCELLS, MPI_DOUBLE, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		for (size_t i = 0; i < NGHOSTCELLS; ++i)
+			res[NGHOSTCELLS + i] = recv[i];
+		MPI_Wait(&req, MPI_STATUS_IGNORE);
+	}
+	else
+	{
+		if (rank == (ws - 1))
+		{
+			MPI_Isend(&edges[1], NGHOSTCELLS, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, &req);
+			MPI_Recv(&recv[0], NGHOSTCELLS, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			for (size_t i = 0; i < NGHOSTCELLS; ++i)
+				res[i] = recv[i];
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+		}
+		else
+		{
+			MPI_Status status;
+			size_t N = edges.size() - 1;
+			MPI_Isend(&edges[1], NGHOSTCELLS, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, &req);
+			MPI_Isend(&edges[N - NGHOSTCELLS], NGHOSTCELLS, MPI_DOUBLE, rank + 1, 1, MPI_COMM_WORLD, &req2);
+			MPI_Probe(MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+			MPI_Recv(&recv[0], NGHOSTCELLS, MPI_DOUBLE, status.MPI_SOURCE, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			if (status.MPI_SOURCE == (rank - 1))
+			{
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+					res[i] = recv[i];
+			}
+			else
+			{
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+					res[NGHOSTCELLS + i] = recv[i];
+			}
+			MPI_Probe(MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+			MPI_Recv(&recv[0], NGHOSTCELLS, MPI_DOUBLE, status.MPI_SOURCE, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			if (status.MPI_SOURCE == (rank - 1))
+			{
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+					res[i] = recv[i];
+			}
+			else
+			{
+				for (size_t i = 0; i < NGHOSTCELLS; ++i)
+					res[NGHOSTCELLS + i] = recv[i];
+			}
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+			MPI_Wait(&req2, MPI_STATUS_IGNORE);
+		}
+	}
+	MPI_Barrier(MPI_COMM_WORLD);
+	return res;
+}
+
+void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &edges, std::vector<Primitive> &pcells)
 {
 	int nlocal = cells.size();
 	int ntotal = 0;
@@ -290,7 +300,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	// Do we need ro rebalance?
 	double maxload = (1.0*nlocal * ws) / ntotal;
 	int newload = 0;
-	if (maxload > 1.25 || maxload < 0.75)
+	if (maxload > 1.025 || maxload < 0.975)
 		newload = 1;
 	int shouldcalc = 0;
 	MPI_Allreduce(&newload, &shouldcalc, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
@@ -300,12 +310,12 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	if (rank == 0)
 		std::cout << "Redistribute data" << std::endl;
 	size_t index_lower = (rank * ntotal) / ws;
-	size_t index_upper = ((rank+1) * ntotal) / ws -1;
-	std::vector<int> nperproc(ws, 0),disp(ws,0),newn(ws,0);
+	size_t index_upper = ((rank + 1) * ntotal) / ws - 1;
+	std::vector<int> nperproc(ws, 0), disp(ws, 0), newn(ws, 0);
 	nlocal *= 7;
 	assert(nlocal > 0);
 	MPI_Gather(&nlocal, 1, MPI_INT, &nperproc[0], 1, MPI_INT, 0, MPI_COMM_WORLD);
-	std::vector<double> tosend = ExtensiveVec2Double(cells,pcells);
+	std::vector<double> tosend = ExtensiveVec2Double(cells, pcells);
 	assert(tosend.size() == nlocal);
 	std::vector<double> torecv(4);
 	if (rank == 0)
@@ -322,15 +332,15 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	if (rank == 0)
 	{
 		for (size_t i = 0; i < ws; ++i)
-			newn[i] = 7*(((i + 1) * ntotal) / ws - (i * ntotal) / ws);
+			newn[i] = 7 * (((i + 1) * ntotal) / ws - (i * ntotal) / ws);
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = newn[i - 1] + disp[i - 1];
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0],
-		7*(index_upper - index_lower + 1),MPI_DOUBLE, 0, MPI_COMM_WORLD);
+		7 * (index_upper - index_lower + 1), MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	pcells.resize(tosend.size() / 7);
-	cells = VecDouble2Extensive(tosend,pcells);
+	cells = VecDouble2Extensive(tosend, pcells);
 	// deal with the edges
 	if (rank == 0)
 	{
@@ -362,8 +372,8 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		{
 			newn[i] /= 7;
 			newn[i]++;
-			if(i>0)
-				disp[i] =newn[i-1] + disp[i-1] - 1;
+			if (i > 0)
+				disp[i] = newn[i - 1] + disp[i - 1] - 1;
 		}
 	}
 	size_t Nnew = (index_upper - index_lower + 2);
@@ -380,7 +390,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	pcells.shrink_to_fit();
 }
 
-void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, std::vector<std::vector<double> >& append,double &Ecool)
+void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, std::vector<std::vector<double> >& append, double &Ecool)
 {
 	int nlocal = cells.size();
 	int ntotal = 0;

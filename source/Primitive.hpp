@@ -29,4 +29,8 @@ public:
 	Primitive& operator=(Primitive const& other);
 };
 
+Primitive operator*(Primitive const&p, double s);
+
+Primitive operator*(double s, Primitive const&p);
+
 #endif //PRIMITIVE_HPP
