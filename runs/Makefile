@@ -24,6 +24,15 @@ else ifeq ($(MODE),parallel_intel)
 	OPTIMIZATION_FLAGS += -DRICH_MPI -O3 -ipo -xHost -fp-model precise -std=c++11 -DOMPI_SKIP_MPICXX
 	LINT_FLAGS = 
 	ARCHIVER_FUNC := xiar
+else ifeq ($(MODE),parallel_intel_habanero)
+	CCC := icc
+	CC := mpiicpc
+	OPTIMIZATION_FLAGS += -DRICH_MPI -O3 -ipo -xHost -fp-model precise -std=c++11 -DOMPI_SKIP_MPICXX
+	LINT_FLAGS = 
+	ARCHIVER_FUNC := xiar
+	HDF5_LIB_PATH := /rigel/spice/users/es3640/Rich/external_libraries/lib
+	BOOST_DIR := /rigel/spice/users/es3640/Rich/external_libraries/boost_dump/boost_1_66_0
+	HDF_DIR := /rigel/spice/users/es3640/Rich/external_libraries/include
 else
 	MODE := production
 	OPTIMIZATION_FLAGS += -O3 -std=c++11
