@@ -252,6 +252,13 @@ namespace
 			}
 			else
 			{
+				double et2 = (extensive[i].energy - 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass)/extensive[i].mass;
+				if (et2 > 0.95*et && et2 < 1.05*et)
+				{
+					et = et2;
+					cells[i].energy = et;
+					extensive[i].et = et * extensive[i].mass;
+				}			
 				cells[i].pressure = eos.de2p(cells[i].density, et);
 				cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
 				extensive[i].entropy = cells[i].entropy*extensive[i].mass;
