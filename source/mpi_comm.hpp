@@ -8,7 +8,7 @@
 #include <array>
 #include "ExactRS.hpp"
 
-#define NGHOSTCELLS 12
+#define NGHOSTCELLS 2
 
 std::array<Primitive, NGHOSTCELLS * 2> SendRecvPrimitive(std::vector<Primitive> const& cells);
 

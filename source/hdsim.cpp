@@ -96,9 +96,22 @@ namespace
 		v = result;
 	}
 
-	double GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values)
+	std::vector<double> GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values,double time,std::vector<double> const& edges)
 	{
-		return interp_values[0].first.velocity*0.99;
+		size_t N = edges.size();
+		std::vector<double> res(N, 0);
+		double end = -2.45 + time * 6.02;
+		if (end < 2.45)
+		{
+			for (size_t i = 0; i < N; ++i)
+			{
+				if (edges[i] < end)
+					res[i] = 6.02;
+				else
+					res[i] = 0;
+			}
+		}
+		return res;
 	}
 }
 
@@ -146,22 +159,23 @@ hdsim::~hdsim()
 
 namespace
 {
-	void MoveGrid(double vgrid, std::vector<double> &edges, double dt)
+	void MoveGrid(std::vector<double> const& vgrid, std::vector<double> &edges, double dt)
 	{
 		size_t N = edges.size();
 		for (size_t i = 0; i < N; ++i)
-			edges[i] += vgrid * dt;
+			edges[i] += vgrid[i] * dt;
 	}
 
 	double GetTimeStep(vector<Primitive> const& cells, vector<double> const& edges, IdealGas const& eos, double cfl,
-		SourceTerm const&source, double &dt_suggest, double vgrid = 0)
+		SourceTerm const&source, double &dt_suggest, std::vector<double> const & vgrid)
 	{
 		double force_inverse_dt = source.GetInverseTimeStep(edges);
 		double dt_1 = eos.dp2c(cells[0].density, cells[0].pressure) / (edges[1] - edges[0]);
 		size_t N = cells.size();
 		for (size_t i = 1; i < N; ++i)
 		{
-			dt_1 = std::max(dt_1, 2 * (std::abs(cells[i].velocity - vgrid) + eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
+			dt_1 = std::max(dt_1, 2 * (std::max(std::abs(cells[i].velocity - vgrid[i]), std::abs(cells[i].velocity - vgrid[i+1])) 
+				+ eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
 		}
 		dt_1 = max(dt_1, force_inverse_dt);
 		if (dt_suggest > 0)
@@ -175,12 +189,13 @@ namespace
 		return cfl / dt_1;
 	}
 
-	void GetFluxes(vector<pair<Primitive, Primitive> > const& interp_values, RiemannSolver const&rs, std::vector<Extensive> &res, IdealGas const& eos, double vgrid = 0)
+	void GetFluxes(vector<pair<Primitive, Primitive> > const& interp_values, RiemannSolver const&rs, std::vector<Extensive> &res, IdealGas const& eos, 
+		std::vector<double> const & vgrid)
 	{
 		size_t N = interp_values.size();
 		res.resize(N);
 		for (int i = 0; i < N; ++i)
-			res[i] = rs.SolveRS(interp_values[i].first, interp_values[i].second, eos, vgrid);
+			res[i] = rs.SolveRS(interp_values[i].first, interp_values[i].second, eos, vgrid[i]);
 	}
 
 	void UpdateExtensives(vector<Extensive> &cells, std::vector<Extensive> &fluxes, double dt, Geometry const& geo,
@@ -316,8 +331,9 @@ void hdsim::TimeAdvance()
 		, ghost_cells, ghost_edges
 #endif
 	);
-	GetFluxes(interp_values_, rs_, fluxes_, eos_);
-	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_, dt_suggest_);
+	std::vector<double> vgrid(edges_.size(), 0);
+	GetFluxes(interp_values_, rs_, fluxes_, eos_,vgrid);
+	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_, dt_suggest_,vgrid);
 
 
 	/*if (BoundarySolution_ != 0)
@@ -352,11 +368,8 @@ void hdsim::TimeAdvance2()
 		, ghost_cells, ghost_edges
 #endif
 	);
-	double vgrid = GetVGrid(interp_values_);
-	vgrid = 0;
-#ifdef RICH_MPI
-	MPI_Bcast(&vgrid, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-#endif
+	std::vector<double> vgrid = GetVGrid(interp_values_,time_,edges_);
+
 	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid);
 
 	/*if (BoundarySolution_ != 0)
