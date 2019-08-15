@@ -100,8 +100,8 @@ namespace
 	{
 		size_t N = edges.size();
 		std::vector<double> res(N, 0);
-		double end = -2.45 + time * 6.02;
-		if (end < 2.45)
+		double end = -2.45e-4 + time * 6.02;
+		if (end < 2.45e-4)
 		{
 			for (size_t i = 0; i < N; ++i)
 			{
@@ -442,7 +442,7 @@ void hdsim::AMR(
 	if (!(AMR_ratio_ > 0))
 		return;
 	bool planar = (geo_.GetArea(1) < (1 + 1e-7) && geo_.GetArea(1) > (1 - 1e-7));
-	size_t Nlevels = 13;
+	size_t Nlevels = 2;
 #ifdef RICH_MPI
 	Nlevels = NGHOSTCELLS;
 #endif
@@ -483,7 +483,6 @@ void hdsim::AMR(
 		// Are we too small?
 		if (dx < (AMR_ratio_* min_size*(planar ? 1.0 : edges_[i])))
 		{
-			assert(false);
 			double pratio2 = 1.1*std::pow((AMR_ratio_ * min_size*(planar ? 1.0 : edges_[i])) / dx, 0.9);;
 			double Tratio2 = 1.2*std::pow((AMR_ratio_ * min_size*(planar ? 1.0 : edges_[i])) / dx, 0.1);;
 			double dratio2 = 1.2*std::pow((AMR_ratio_ * min_size*(planar ? 1.0 : edges_[i])) / dx, 1.1);
