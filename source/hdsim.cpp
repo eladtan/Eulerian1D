@@ -175,7 +175,8 @@ namespace
 		size_t N = cells.size();
 		for (size_t i = 1; i < N; ++i)
 		{
-			dt_1 = std::max(dt_1, 2 * (std::max(std::abs(cells[i].velocity - vgrid[i]), std::abs(cells[i].velocity - vgrid[i+1])) 
+			dt_1 = std::max(dt_1, 2 * (std::max(std::abs(vgrid[i]-vgrid[i+1]),
+				std::max(std::abs(cells[i].velocity - vgrid[i]), std::abs(cells[i].velocity - vgrid[i+1]))) 
 				+ eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
 		}
 		dt_1 = max(dt_1, force_inverse_dt);
