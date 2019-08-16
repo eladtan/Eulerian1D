@@ -205,15 +205,15 @@ namespace
 		size_t N = cells.size();
 		for (size_t i = 0; i < N; ++i)
 		{
-			//double v = cells[i].momentum / cells[i].mass;
+			double v = cells[i].momentum / cells[i].mass;
 
-			double oldEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
+			//double oldEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
 			double newP = cells[i].momentum + fluxes[i].momentum * geo.GetArea(edges[i])*dt;
 			double newM = cells[i].mass + fluxes[i].mass* geo.GetArea(edges[i])*dt;
-			double newEk0 = newP * newP*0.5 / newM;
+			//double newEk0 = newP * newP*0.5 / newM;
 			newP = cells[i].momentum - fluxes[i + 1].momentum * geo.GetArea(edges[i + 1])*dt;
 			newM = cells[i].mass - fluxes[i + 1].mass* geo.GetArea(edges[i + 1])*dt;
-			double newEk1 = newP * newP*0.5 / newM;
+			//double newEk1 = newP * newP*0.5 / newM;
 
 			double dP = -(fluxes[i + 1].momentum * geo.GetArea(edges[i + 1]) - fluxes[i].momentum * geo.GetArea(edges[i]))*dt;
 			cells[i].momentum += dP;
@@ -222,8 +222,8 @@ namespace
 			double mdot = -(fluxes[i + 1].mass* geo.GetArea(edges[i + 1]) - fluxes[i].mass* geo.GetArea(edges[i]))*dt;
 			cells[i].mass += mdot;
 			//	double newEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
-				//cells[i].et += dE - v * dP + 0.5*v*v*mdot;
-			cells[i].et += dE - newEk1 - newEk0 + oldEk;
+			cells[i].et += dE - v * dP + 0.5*v*v*mdot;
+			//cells[i].et += dE - newEk1 - newEk0 + oldEk;
 			cells[i].entropy += -(fluxes[i + 1].entropy* geo.GetArea(edges[i + 1]) - fluxes[i].entropy* geo.GetArea(edges[i]))*dt;
 			if (!(cells[i].mass > 0) || !(cells[i].entropy > 0))
 			{
