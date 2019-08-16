@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <iostream>
 #include "RiemannSolver.hpp"
+#include "universal_error.hpp"
 #ifdef RICH_MPI
 #include "mpi_comm.hpp"
 #endif
@@ -199,7 +200,7 @@ namespace
 	}
 
 	void UpdateExtensives(vector<Extensive> &cells, std::vector<Extensive> &fluxes, double dt, Geometry const& geo,
-		std::vector<double> const& edges)
+		std::vector<double> const& edges ,vector<pair<Primitive, Primitive> > const &interp_values, std::vector<double> const& vgrid)
 	{
 		size_t N = cells.size();
 		for (size_t i = 0; i < N; ++i)
@@ -224,6 +225,40 @@ namespace
 				//cells[i].et += dE - v * dP + 0.5*v*v*mdot;
 			cells[i].et += dE - newEk1 - newEk0 + oldEk;
 			cells[i].entropy += -(fluxes[i + 1].entropy* geo.GetArea(edges[i + 1]) - fluxes[i].entropy* geo.GetArea(edges[i]))*dt;
+			if (!(cells[i].mass > 0) || !(cells[i].entropy > 0))
+			{
+				UniversalError eo("Bad extensive update");
+				eo.AddEntry("Cell index", i);
+#ifdef RICH_MPI
+				int rank = 0;
+				MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+				eo.AddEntry("rank", rank);
+#endif
+				eo.AddEntry("mass", cells[i].mass);
+				eo.AddEntry("Entropy", cells[i].entropy);
+				eo.AddEntry("dt", dt);
+				eo.AddEntry("Left edge", edges[i]);
+				eo.AddEntry("Right edge", edges[i+1]);
+				eo.AddEntry("Left density", interp_values[i].first.density);
+				eo.AddEntry("Left pressure", interp_values[i].first.pressure);
+				eo.AddEntry("Left velocity", interp_values[i].first.velocity);
+				eo.AddEntry("Left entropy", interp_values[i].first.entropy);
+				eo.AddEntry("Right density", interp_values[i].second.density);
+				eo.AddEntry("Right pressure", interp_values[i].second.pressure);
+				eo.AddEntry("Right velocity", interp_values[i].second.velocity);
+				eo.AddEntry("Right entropy", interp_values[i].second.entropy);
+				eo.AddEntry("vgrid", vgrid[i]);
+				eo.AddEntry("Left density", interp_values[i + 1].first.density);
+				eo.AddEntry("Left pressure", interp_values[i + 1].first.pressure);
+				eo.AddEntry("Left velocity", interp_values[i + 1].first.velocity);
+				eo.AddEntry("Left entropy", interp_values[i + 1].first.entropy);
+				eo.AddEntry("Right density", interp_values[i + 1].second.density);
+				eo.AddEntry("Right pressure", interp_values[i + 1].second.pressure);
+				eo.AddEntry("Right velocity", interp_values[i + 1].second.velocity);
+				eo.AddEntry("Right entropy", interp_values[i + 1].second.entropy);
+				eo.AddEntry("vgrid", vgrid[i + 1]);
+				throw eo;
+			}
 		}
 	}
 
@@ -238,7 +273,7 @@ namespace
 	}
 
 	void UpdateCells(vector<Extensive> &extensive, vector<double> const& edges, IdealGas const& eos,
-		vector<Primitive> &cells, Geometry const& geo)
+		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,std::vector<double> const& vgrid)
 	{
 		size_t N = cells.size();
 		for (int i = 0; i < N; ++i)
@@ -278,9 +313,36 @@ namespace
 				cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
 				extensive[i].entropy = cells[i].entropy*extensive[i].mass;
 			}
-			//cells[i].pressure = std::max(cells[i].pressure, cells[i].density*cells[i].velocity*cells[i].velocity*0.0001);
-			assert(cells[i].pressure > 0);
-			assert(cells[i].entropy > 0);
+			if (!(cells[i].pressure > 0) || !(cells[i].entropy > 0))
+			{
+				UniversalError eo("Bad cell update");
+				eo.AddEntry("Cell index", i);
+#ifdef RICH_MPI
+				int rank = 0;
+				MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+				eo.AddEntry("rank", rank);
+#endif
+				eo.AddEntry("Left density", interp_values[i].first.density);
+				eo.AddEntry("Left pressure", interp_values[i].first.pressure);
+				eo.AddEntry("Left velocity", interp_values[i].first.velocity);
+				eo.AddEntry("Left entropy", interp_values[i].first.entropy);
+				eo.AddEntry("Right density", interp_values[i].second.density);
+				eo.AddEntry("Right pressure", interp_values[i].second.pressure);
+				eo.AddEntry("Right velocity", interp_values[i].second.velocity);
+				eo.AddEntry("Right entropy", interp_values[i].second.entropy);
+				eo.AddEntry("vgrid", vgrid[i]);
+				eo.AddEntry("Left density", interp_values[i+1].first.density);
+				eo.AddEntry("Left pressure", interp_values[i + 1].first.pressure);
+				eo.AddEntry("Left velocity", interp_values[i + 1].first.velocity);
+				eo.AddEntry("Left entropy", interp_values[i + 1].first.entropy);
+				eo.AddEntry("Right density", interp_values[i + 1].second.density);
+				eo.AddEntry("Right pressure", interp_values[i + 1].second.pressure);
+				eo.AddEntry("Right velocity", interp_values[i + 1].second.velocity);
+				eo.AddEntry("Right entropy", interp_values[i + 1].second.entropy);
+				eo.AddEntry("vgrid", vgrid[i + 1]);
+				throw eo;
+			}
+			
 		}
 	}
 }
@@ -345,9 +407,9 @@ void hdsim::TimeAdvance()
 			rs_values_.back() = bvalues.second;
 	}*/
 
-	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_);
+	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_,interp_values_,vgrid);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid);
 	time_ += dt;
 	++cycle_;
 	AMR(
@@ -386,10 +448,10 @@ void hdsim::TimeAdvance2()
 
 	vector<Extensive> old_extensive(extensives_);
 	std::vector<double> oldedges(edges_);
-	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_);
+	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_, interp_values_, vgrid);
 	MoveGrid(vgrid, edges_, dt);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid);
 	time_ += dt;
 #ifdef RICH_MPI
 	ghost_cells = SendRecvPrimitive(cells_);
@@ -412,7 +474,7 @@ void hdsim::TimeAdvance2()
 		}
 	}
 	*/
-	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_);
+	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_, interp_values_, vgrid);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
 	size_t N = extensives_.size();
 	for (size_t i = 0; i < N; ++i)
@@ -423,7 +485,7 @@ void hdsim::TimeAdvance2()
 #ifdef RICH_MPI
 	RedistributeExtensives(extensives_, edges_, cells_);
 #endif
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid);
 	++cycle_;
 	AMR(
 #ifdef RICH_MPI
