@@ -101,16 +101,24 @@ namespace
 	{
 		size_t N = edges.size();
 		std::vector<double> res(N, 0);
-		double end = -2.45e-4 + time * 6.02;
-		if (end < 2.45e-4)
+		double alpha = 5e-5;
+#ifdef RICH_MPI
+		double vedge= interp_values[0].first.velocity;
+		MPI_Bcast(&vedge, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+		std::array<double, NGHOSTCELLS * 2> ghost_edges = SendRecvEdges(edges);
+		if ((edges[0] - ghost_edges[NGHOSTCELLS - 1]) > alpha*edges[0])
+			res[0] = vedge * 1.05;
+		else
+			res[0] = vedge;
+#else
+		res[0] = vedge;
+#endif
+		for (size_t i = 1; i < N; ++i)
 		{
-			for (size_t i = 0; i < N; ++i)
-			{
-				if (edges[i] < end)
-					res[i] = 6.02;
-				else
-					res[i] = 0;
-			}
+			if ((edges[i] - edges[i-1]) > alpha*edges[i])
+				res[i] = vedge * 1.05;
+			else
+				res[i] = vedge;
 		}
 		return res;
 	}
