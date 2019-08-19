@@ -171,9 +171,9 @@ namespace
 		SourceTerm const&source, double &dt_suggest, std::vector<double> const & vgrid)
 	{
 		double force_inverse_dt = source.GetInverseTimeStep(edges);
-		double dt_1 = eos.dp2c(cells[0].density, cells[0].pressure) / (edges[1] - edges[0]);
+		double dt_1 = 0;
 		size_t N = cells.size();
-		for (size_t i = 1; i < N; ++i)
+		for (size_t i = 0; i < N; ++i)
 		{
 			dt_1 = std::max(dt_1, 2 * (std::max(std::abs(vgrid[i]-vgrid[i+1]),
 				std::max(std::abs(cells[i].velocity - vgrid[i]), std::abs(cells[i].velocity - vgrid[i+1]))) 
