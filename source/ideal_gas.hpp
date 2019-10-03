@@ -6,10 +6,11 @@ class IdealGas
 private:
 
   double g_;
+  bool SR_;
 
 public:
 
-  explicit IdealGas(double AdiabaticIndex);
+  explicit IdealGas(double AdiabaticIndex, bool SR = false);
 
   double getAdiabaticIndex(void) const;
 

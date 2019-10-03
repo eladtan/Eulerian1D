@@ -2,6 +2,7 @@
 #include <algorithm>
 #include<cmath>
 #include <iostream>
+#include <array>
 
 /*BoundarySolution::~BoundarySolution() {}
 
@@ -27,112 +28,209 @@ Boundary::~Boundary()
 {}
 
 vector<Primitive> RigidWall::GetBoundaryValues(vector<Primitive> const & cells,
-	vector<double> const & edges, size_t index,double time) const
+	vector<double> const & edges, size_t index,double time, bool SR) const
 {
 	vector<Primitive> res(3);
 	if (index == 0)
 	{
-		Primitive slope = (cells[1] - cells[0]) / (0.5*(edges[2] - edges[0]));
+		std::array<Primitive, 2> new_cells = { cells[0], cells[1] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 2; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
+		Primitive slope = (new_cells[1] - new_cells[0]) / (0.5*(edges[2] - edges[0]));
 		slope.density = 0;
 		slope.entropy = 0;
 		//slope.velocity = 0;
 		slope.pressure = 0;
-		res[1] = cells[0] - slope*(0.5*(edges[1] - edges[0]));
+		res[1] = new_cells[0] - slope*(0.5*(edges[1] - edges[0]));
 		res[0] = res[1];
 		res[0].velocity = -res[1].velocity;
-		res[2] = cells[0]+slope*(0.5*(edges[1] - edges[0]));
+		res[2] = new_cells[0]+slope*(0.5*(edges[1] - edges[0]));
 	}
 	else
 	{
 		size_t N = edges.size();
-		Primitive slope = (cells[N-2] - cells[N-3]) / (0.5*(edges[N-1] - edges[N-3]));
+		std::array<Primitive, 2> new_cells = { cells[N-3], cells[N-2] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 2; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
+		Primitive slope = (new_cells[1] - new_cells[0]) / (0.5*(edges[N-1] - edges[N-3]));
 		slope.density = 0;
 		slope.entropy = 0;
 		//slope.velocity = 0;
 		slope.pressure = 0;
-		res[1] = cells[N-2] + slope*(0.5*(edges[N-1] - edges[N-2]));
+		res[1] = new_cells[1] + slope*(0.5*(edges[N-1] - edges[N-2]));
 		res[2] = res[1];
 		res[2].velocity = -res[1].velocity;
-		res[0] = cells[N-2] - slope*(0.5*(edges[N-1] - edges[N-2]));
+		res[0] = new_cells[1] - slope*(0.5*(edges[N-1] - edges[N-2]));
+	}
+	if (SR)
+	{
+		for (size_t i = 0; i < 3; ++i)
+		{
+			double factor = 1.0 / std::sqrt(1 +
+				res[i].velocity*res[i].velocity);
+			res[i].velocity *= factor;
+		}
 	}
 	return res;
 }
 
 vector<Primitive> Ratchet::GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
-		edges, size_t index, double time)const
+		edges, size_t index, double time, bool SR)const
 {
 	if (index == 0)
 		throw("Not implemented");
 	if (cells.back().velocity < 0)
 	{
 		RigidWall br;
-		return br.GetBoundaryValues(cells, edges, index, time);
+		return br.GetBoundaryValues(cells, edges, index, time,SR);
 	}
 	else
 	{
 		FreeFlow br;
-		return br.GetBoundaryValues(cells, edges, index, time);
+		return br.GetBoundaryValues(cells, edges, index, time,SR);
 	}
 }
 
 
 vector<Primitive> RigidWall1::GetBoundaryValues(vector<Primitive> const & cells,
-	vector<double> const & edges, size_t index, double time) const
+	vector<double> const & edges, size_t index, double time, bool SR) const
 {
 	vector<Primitive> res(3);
 	if (index == 0)
 	{
-		res[1] = cells[0];
+		std::array<Primitive, 2> new_cells = { cells[0], cells[1] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 2; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
+		res[1] = new_cells[0];
 		res[0] = res[1];
 		res[0].velocity = -res[1].velocity;
-		res[2] = cells[0];
+		res[2] = new_cells[0];
 	}
 	else
 	{
 		size_t N = edges.size();
-		res[1] = cells[N - 2] ;
+		std::array<Primitive, 2> new_cells = { cells[N-3], cells[N-2] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 2; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
+		res[1] = cells[1] ;
 		res[2] = res[1];
 		res[2].velocity = -res[1].velocity;
-		res[0] = cells[N - 2];
+		res[0] = cells[1];
+	}
+	if (SR)
+	{
+		for (size_t i = 0; i < 3; ++i)
+		{
+			double factor = 1.0 / std::sqrt(1 +
+				res[i].velocity*res[i].velocity);
+			res[i].velocity *= factor;
+		}
 	}
 	return res;
 }
 
 
 vector<Primitive> FreeFlow::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges,
-	size_t index, double time) const
+	size_t index, double time,bool SR) const
 {
 	vector<Primitive> res(3);
 	if (index == 0)
 	{
-		res[1] = cells[0];
+		std::array<Primitive, 2> new_cells = { cells[0], cells[1] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 2; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
+		res[1] = new_cells[0];
 		res[0] = res[1];
-		res[2] = cells[0];
+		res[2] = new_cells[0];
 	}
 	else
 	{
 		size_t N = edges.size();
-		res[1] = cells[N - 2];
+		std::array<Primitive, 2> new_cells = { cells[N-3], cells[N-2] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 2; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
+		res[1] = new_cells[1];
 		res[2] = res[1];
-		res[0] = cells[N - 2];
+		res[0] = new_cells[1];
 	/*	const Primitive sl = (cells[i] - cells[i - 1]) / (0.5*(edges[i + 1] - edges[i - 1]));
 		const Primitive sr = (cells[i + 1] - cells[i]) / (0.5*(edges[i + 2] - edges[i]));
 		const Primitive sc = (cells[i + 1] - cells[i - 1]) / (0.5*(edges[i + 2] + edges[i + 1] - edges[i - 1]*/
+	}
+	if (SR)
+	{
+		for (size_t i = 0; i < 3; ++i)
+		{
+			double factor = 1.0 / std::sqrt(1 +
+				res[i].velocity*res[i].velocity);
+			res[i].velocity *= factor;
+		}
 	}
 	return res;
 }
 
 vector<Primitive> FreeFlow2::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges,
-	size_t index, double time) const
+	size_t index, double time,bool SR) const
 {
 	vector<Primitive> res(3);
 	Primitive slope;
 	if (index == 0)
 	{
+		std::array<Primitive, 3> new_cells = { cells[0], cells[1], cells[2] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 3; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
 		size_t i = 1;
-		const Primitive sl = (cells[i] - cells[i - 1]) / (0.5*(edges[i + 1] - edges[i-1]));
-		const Primitive sr = (cells[i+1] - cells[i]) / (0.5*(edges[i + 2] - edges[i]));
-		const Primitive sc = (cells[i+1] - cells[i - 1]) / (0.5*(edges[i + 2]+edges[i + 1] - edges[i - 1]
+		const Primitive sl = (new_cells[i] - new_cells[i - 1]) / (0.5*(edges[i + 1] - edges[i-1]));
+		const Primitive sr = (new_cells[i+1] - new_cells[i]) / (0.5*(edges[i + 2] - edges[i]));
+		const Primitive sc = (new_cells[i+1] - new_cells[i - 1]) / (0.5*(edges[i + 2]+edges[i + 1] - edges[i - 1]
 			- edges[i]));
 		if (sl.density*sr.density < 0)
 			slope.density = 0;
@@ -154,16 +252,27 @@ vector<Primitive> FreeFlow2::GetBoundaryValues(vector<Primitive> const & cells, 
 		double dx0 = edges[1] - edges[0];
 
 
-		res[1] = cells[0] - slope*0.5*dx0;
+		res[1] = new_cells[0] - slope*0.5*dx0;
 		res[0] = res[1];
-		res[2] = cells[0] + slope*0.5*dx0;
+		res[2] = new_cells[0] + slope*0.5*dx0;
 	}
 	else
 	{
+		size_t N = edges.size();
+		std::array<Primitive, 3> new_cells = { cells[N - 4], cells[N -3], cells[N -2] };
+		if (SR)
+		{
+			for (size_t i = 0; i < 3; ++i)
+			{
+				double gamma = 1.0 / std::sqrt(1.0 -
+					new_cells[i].velocity*new_cells[i].velocity);
+				new_cells[i].velocity *= gamma;
+			}
+		}
 		size_t i = edges.size()-3;
-		const Primitive sl = (cells[i] - cells[i - 1]) / (0.5*(edges[i + 1] - edges[i - 1]));
-		const Primitive sr = (cells[i + 1] - cells[i]) / (0.5*(edges[i + 2] - edges[i]));
-		const Primitive sc = (cells[i + 1] - cells[i - 1]) / (0.5*(edges[i + 2] + edges[i + 1] - edges[i - 1]
+		const Primitive sl = (new_cells[1] - new_cells[0]) / (0.5*(edges[i + 1] - edges[i - 1]));
+		const Primitive sr = (new_cells[2] - new_cells[1]) / (0.5*(edges[i + 2] - edges[i]));
+		const Primitive sc = (new_cells[2] - new_cells[0]) / (0.5*(edges[i + 2] + edges[i + 1] - edges[i - 1]
 			- edges[i]));
 		if (sl.density*sr.density < 0)
 			slope.density = 0;
@@ -186,24 +295,43 @@ vector<Primitive> FreeFlow2::GetBoundaryValues(vector<Primitive> const & cells, 
 		//slope.pressure = -2 * (cells[i].pressure + slope.pressure*0.5*dxl - cells[i + 1].pressure) / dxr;
 		//slope.velocity = -2 * (cells[i].velocity + slope.velocity*0.5*dxl - cells[i + 1].velocity) / dxr;
 
-		res[0] = cells[i + 1] - slope*0.5*dxr;
-		res[1] = cells[i + 1] + slope*0.5*dxr;
+		res[0] = new_cells[2] - slope*0.5*dxr;
+		res[1] = new_cells[2] + slope*0.5*dxr;
 		res[2] = res[1];
+	}
+	if (SR)
+	{
+		for (size_t i = 0; i < 3; ++i)
+		{
+			double factor = 1.0 / std::sqrt(1 +
+				res[i].velocity*res[i].velocity);
+			res[i].velocity *= factor;
+		}
 	}
 	return res;
 }
 
 
 vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index,
-	double time) const
+	double time, bool SR) const
 {
 	vector<Primitive> res(3);
 	size_t N = edges.size();
 	double L = edges[N - 1] - edges[0];
 	Primitive slope0,slopeN;
-	Primitive sr = (cells[1] - cells[0]) / (0.5*(edges[2] - edges[0]));
-	Primitive sl = (cells[0] - cells[N - 2]) / (0.5*(edges[1] - edges[N - 2] + L));
-	Primitive sc = (cells[1] - cells[N - 2]) / (0.5*(edges[2] + edges[1] - edges[0] - edges[N - 2] + L));
+	std::array<Primitive, 4> new_cells = { cells[0], cells[1], cells[N - 3], cells[N - 2] };
+	if (SR)
+	{
+		for (size_t i = 0; i < 4; ++i)
+		{
+			double gamma = 1.0 / std::sqrt(1.0 -
+				new_cells[i].velocity*new_cells[i].velocity);
+			new_cells[i].velocity *= gamma;
+		}
+	}
+	Primitive sr = (new_cells[1] - new_cells[0]) / (0.5*(edges[2] - edges[0]));
+	Primitive sl = (new_cells[0] - new_cells[3]) / (0.5*(edges[1] - edges[N - 2] + L));
+	Primitive sc = (new_cells[1] - new_cells[3]) / (0.5*(edges[2] + edges[1] - edges[0] - edges[N - 2] + L));
 	if (sl.density*sr.density < 0)
 		slope0.density = 0;
 	else
@@ -220,8 +348,8 @@ vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, v
 		slope0.velocity = min(fabs(sl.velocity), min(fabs(sr.velocity), fabs(sc.velocity))) * (sl.velocity > 0 ?
 			1 : -1);
 	sr = sl;
-	sl = (cells[N - 2] - cells[N - 3]) / (0.5*(edges[N - 1] - edges[N - 3]));
-	sc = (cells[0] - cells[N - 3]) / (0.5*(edges[N - 1] + edges[0] - edges[N - 3] - edges[N - 2] + L));
+	sl = (new_cells[3] - new_cells[2]) / (0.5*(edges[N - 1] - edges[N - 3]));
+	sc = (new_cells[0] - new_cells[2]) / (0.5*(edges[N - 1] + edges[0] - edges[N - 3] - edges[N - 2] + L));
 	if (sl.density*sr.density < 0)
 		slopeN.density = 0;
 	else
@@ -240,15 +368,24 @@ vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, v
 
 	if (index == 0)
 	{
-		res[1] = cells[0] - slope0*(0.5*(edges[1] - edges[0]));
-		res[0] = cells[N-2]+slopeN*(0.5*(edges[N-1] - edges[N-2]));
-		res[2] = cells[0] + slope0*(0.5*(edges[1] - edges[0]));
+		res[1] = new_cells[0] - slope0*(0.5*(edges[1] - edges[0]));
+		res[0] = new_cells[3]+slopeN*(0.5*(edges[N-1] - edges[N-2]));
+		res[2] = new_cells[0] + slope0*(0.5*(edges[1] - edges[0]));
 	}
 	else
 	{
-		res[1] = cells[N - 2] + slopeN*(0.5*(edges[N - 1] - edges[N - 2]));
-		res[2] = cells[0] - slope0*(0.5*(edges[1] - edges[0]));
-		res[0] = cells[N - 2] - slopeN*(0.5*(edges[N - 1] - edges[N - 2]));
+		res[1] = new_cells[3] + slopeN*(0.5*(edges[N - 1] - edges[N - 2]));
+		res[2] = new_cells[0] - slope0*(0.5*(edges[1] - edges[0]));
+		res[0] = new_cells[3] - slopeN*(0.5*(edges[N - 1] - edges[N - 2]));
+	}
+	if (SR)
+	{
+		for (size_t i = 0; i < 3; ++i)
+		{
+			double factor = 1.0 / std::sqrt(1 +
+				res[i].velocity*res[i].velocity);
+			res[i].velocity *= factor;
+		}
 	}
 	return res;
 }
@@ -257,34 +394,45 @@ SeveralBoundary::SeveralBoundary(Boundary const & left, Boundary const & right):
 {}
 
 vector<Primitive> SeveralBoundary::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index, 
-	double time) const
+	double time,bool SR) const
 {
 	if(index==0)
-		return left_.GetBoundaryValues(cells, edges, index,time);
+		return left_.GetBoundaryValues(cells, edges, index,time,SR);
 	else
-		return right_.GetBoundaryValues(cells, edges, index,time);
+		return right_.GetBoundaryValues(cells, edges, index,time,SR);
 }
 
 ConstantPrimitive::ConstantPrimitive(Primitive outer):outer_(outer)
 {}
 
 vector<Primitive> ConstantPrimitive::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index, 
-	double time) const
+	double time,bool SR) const
 {
 	vector<Primitive> res(3);
 	size_t N = edges.size();
 	Primitive left, center, right;
+	std::array<Primitive, 5> new_cells = { cells[0], cells[1], cells[N - 3], 
+		cells[N-2], outer_ };
+	if (SR)
+	{
+		for (size_t i = 0; i < 5; ++i)
+		{
+			double gamma = 1.0 / std::sqrt(1.0 -
+				new_cells[i].velocity*new_cells[i].velocity);
+			new_cells[i].velocity *= gamma;
+		}
+	}
 	if (index == 0)
 	{
-		left = outer_;
-		center = cells[0];
-		right = cells[1];
+		left = new_cells[4];
+		center = new_cells[0];
+		right = new_cells[1];
 	}
 	else
 	{
-		left = cells[N-3];
-		center = cells[N-2];
-		right = outer_;
+		left = new_cells[2];
+		center = new_cells[3];
+		right = new_cells[4];
 	}
 	double dxl, dxr, dxc;
 	if (index == 0)
@@ -320,15 +468,24 @@ vector<Primitive> ConstantPrimitive::GetBoundaryValues(vector<Primitive> const &
 			1 : -1);
 	if (index == 0)
 	{
-		res[1] = cells[0] - slope0*(0.5*(edges[1] - edges[0]));
-		res[0] = outer_;
-		res[2] = cells[0] + slope0*(0.5*(edges[1] - edges[0]));
+		res[1] = new_cells[0] - slope0*(0.5*(edges[1] - edges[0]));
+		res[0] = new_cells[4];
+		res[2] = new_cells[0] + slope0*(0.5*(edges[1] - edges[0]));
 	}
 	else
 	{
-		res[1] = cells[N - 2] + slope0*(0.5*(edges[N - 1] - edges[N - 2]));
-		res[2] = outer_;
-		res[0] = cells[N - 2] - slope0*(0.5*(edges[N - 1] - edges[N - 2]));
+		res[1] = new_cells[3] + slope0*(0.5*(edges[N - 1] - edges[N - 2]));
+		res[2] = new_cells[4];
+		res[0] = new_cells[3] - slope0*(0.5*(edges[N - 1] - edges[N - 2]));
+	}
+	if (SR)
+	{
+		for (size_t i = 0; i < 3; ++i)
+		{
+			double factor = 1.0 / std::sqrt(1 +
+				res[i].velocity*res[i].velocity);
+			res[i].velocity *= factor;
+		}
 	}
 	return res;
 }

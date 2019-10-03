@@ -9,6 +9,118 @@
 #include <cassert>
 namespace
 {
+	class SolveVelocity
+	{
+
+	public:
+		double a0_, a1_, a2_, a3_, a4_;
+
+		SolveVelocity(double a0, double a1, double a2, double a3, double a4) :a0_(a0), a1_(a1), a2_(a2), a3_(a3), a4_(a4) {}
+
+		double operator()(const double v) const
+		{
+			return v * v*(a4_*v*v + a3_ * v + a2_) + v * a1_ + a0_;
+		}
+
+		double Deriv(const double v) const
+		{
+			return v * v*(4 * a4_*v + a3_ * 3) + 2 * a2_*v + a1_;
+		}
+	};
+
+	double DoNewtonRapshon(SolveVelocity const& solve, double val)
+	{
+		size_t counter = 1;
+		double f0 = solve(val);
+		double new_val = val - f0 / solve.Deriv(val);
+		while (std::abs(new_val - val) > 1e-12 && (std::abs(f0) > (1e-12*solve.a0_)))
+		{
+			++counter;
+			val = new_val;
+			f0 = solve(val);
+			new_val = std::min(1.0, val - f0 / solve.Deriv(val));
+			if (counter > 99)
+			{
+				throw UniversalError("Bad convergence in simple cell updater, too mant iterations in finding velocity");
+			}
+		}
+		return new_val;
+	}
+
+	double GetVelocity(Extensive const& cell, double G)
+	{
+		double M = std::abs(cell.momentum);
+		// Add rest mass energy
+		double E = cell.energy + cell.mass;
+		SolveVelocity tosolve(M*M, -2 * G*M*E, G*G*E*E + 2 * (G - 1)*M*M - (G - 1)*
+			(G - 1)*cell.mass*cell.mass, -2 * G*(G - 1)*M*E, (G - 1)*(G - 1)*
+			(cell.mass*cell.mass + M * M));
+
+		double vmin = (1e6*M < cell.mass) ? 0 : (G*E - std::sqrt((G*E)*(G*E) - 4 *
+			(G - 1)*M*M)) / (2 * M*(G - 1));
+		vmin = std::min(vmin, 0.999);
+		if ((G*E)*(G*E) - 4 * (G - 1)*M*M < 0)
+			vmin = 0;
+		double vmax = std::min(1.0, M / E + 1e-6);
+		double res = 0;
+		try
+		{
+			res = DoNewtonRapshon(tosolve, 0.5*(vmin + vmax));
+		}
+		catch (UniversalError &eo)
+		{
+			eo.AddEntry("Mass", cell.mass);
+			eo.AddEntry("Mx", cell.momentum);
+			eo.AddEntry("Energy", cell.energy);
+			eo.AddEntry("Enthalpy", cell.et);
+			DisplayError(eo);
+			throw eo;
+		}
+		return res;
+	}
+
+	void PrimitiveToConserved(Geometry const& geo, std::vector<double> const& edges,
+		std::vector<Primitive> &cells, std::vector<Extensive> &extensives,
+		IdealGas const& eos, double time, size_t i)
+	{
+		double vol = geo.GetVolume(edges, i);
+		extensives[i].mass = cells[i].density*vol;
+		extensives[i].momentum = extensives[i].mass*cells[i].velocity;
+		extensives[i].energy = 0.5*extensives[i].momentum*extensives[i].momentum
+			/ extensives[i].mass + eos.dp2e(cells[i].density, cells[i].pressure)*extensives[i].mass;
+		extensives[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure)*extensives[i].mass;
+		cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
+		cells[i].energy = eos.dp2e(cells[i].density, cells[i].pressure);
+		cells[i].LastCool = time;
+		extensives[i].et = cells[i].energy*extensives[i].mass;
+	}
+
+	void PrimitiveToConservedSR(Geometry const& geo, std::vector<double> const& edges,
+		std::vector<Primitive> &cells, std::vector<Extensive> &extensives,
+		IdealGas const& eos, double time, size_t i)
+	{
+		double gamma = 1 / std::sqrt(1 - cells[i].velocity * cells[i].velocity);
+		double vol = geo.GetVolume(edges, i);
+		extensives[i].mass = cells[i].density*vol*gamma;
+		const double enthalpy = eos.dp2e(cells[i].density, cells[i].pressure);
+		extensives[i].et = enthalpy * extensives[i].mass;
+
+		if (std::abs(cells[i].velocity) < 1e-5)
+			extensives[i].energy = (gamma*enthalpy + 0.5*cells[i].velocity,
+				cells[i].velocity) * extensives[i].mass - cells[i].pressure*vol;
+		else
+			extensives[i].energy = (gamma*enthalpy + (gamma - 1))* extensives[i].mass
+			- cells[i].pressure*vol;
+		extensives[i].momentum = extensives[i].mass * (enthalpy + 1)*gamma*cells[i].velocity;
+
+		extensives[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure)
+			* extensives[i].mass;
+		cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
+		cells[i].energy = enthalpy;
+		cells[i].LastCool = time;
+
+	}
+
 	Extensive CalcExtensive(Geometry const& geo, std::vector<double> const&
 		edges, Primitive const& cell, size_t index)
 	{
@@ -97,38 +209,21 @@ namespace
 		v = result;
 	}
 
-	std::vector<double> GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values,double time,std::vector<double> const& edges)
+	std::vector<double> GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values, double time, std::vector<double> const& edges)
 	{
 		size_t N = edges.size();
 		std::vector<double> res(N, 0);
-		double alpha = 5e-5;
-#ifdef RICH_MPI
-		double vedge= interp_values[0].first.velocity;
-		MPI_Bcast(&vedge, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		std::array<double, NGHOSTCELLS * 2> ghost_edges = SendRecvEdges(edges);
-		if ((edges[0] - ghost_edges[NGHOSTCELLS - 1]) > alpha*edges[0])
-			res[0] = vedge * 1.05;
-		else
-			res[0] = vedge;
-#else
-		res[0] = vedge;
-#endif
-		for (size_t i = 1; i < N; ++i)
-		{
-			if ((edges[i] - edges[i-1]) > alpha*edges[i])
-				res[i] = vedge * 1.05;
-			else
-				res[i] = vedge;
-		}
+
 		return res;
 	}
 }
 
 hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& edges, Interpolation const& interp,
 	IdealGas const& eos, RiemannSolver const& rs, SourceTerm const& source, Geometry const& geo,
-	const double AMR_ratio) :cfl_(cfl),
+	const double AMR_ratio, bool SR) :cfl_(cfl),
 	cells_(cells), edges_(edges), interpolation_(interp), eos_(eos), rs_(rs), time_(0), cycle_(0), TotalEcool_(0),
-	extensives_(vector<Extensive>()), source_(source), geo_(geo), AMR_ratio_(AMR_ratio), dt_suggest_(-1)
+	extensives_(vector<Extensive>()), source_(source), geo_(geo),
+	AMR_ratio_(AMR_ratio), SR_(SR), dt_suggest_(-1)
 {
 #ifdef RICH_MPI
 	size_t Ntotal = cells.size();
@@ -149,16 +244,10 @@ hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& e
 	extensives_.resize(N);
 	for (size_t i = 0; i < N; ++i)
 	{
-		double vol = geo_.GetVolume(edges_, i);;
-		extensives_[i].mass = cells_[i].density*vol;
-		extensives_[i].momentum = extensives_[i].mass*cells_[i].velocity;
-		extensives_[i].energy = 0.5*extensives_[i].momentum*extensives_[i].momentum / extensives_[i].mass +
-			eos_.dp2e(cells_[i].density, cells_[i].pressure)*extensives_[i].mass;
-		extensives_[i].entropy = eos_.dp2s(cells_[i].density, cells_[i].pressure)*extensives_[i].mass;
-		cells_[i].entropy = eos_.dp2s(cells_[i].density, cells_[i].pressure);
-		cells_[i].energy = eos_.dp2e(cells_[i].density, cells_[i].pressure);
-		cells_[i].LastCool = time_;
-		extensives_[i].et = cells_[i].energy*extensives_[i].mass;
+		if (SR_)
+			PrimitiveToConservedSR(geo, edges_, cells_, extensives_, eos, time_, i);
+		else
+			PrimitiveToConserved(geo_, edges_, cells_, extensives_, eos_, time_, i);
 	}
 }
 
@@ -183,8 +272,8 @@ namespace
 		size_t N = cells.size();
 		for (size_t i = 0; i < N; ++i)
 		{
-			dt_1 = std::max(dt_1, 2 * (std::max(std::abs(vgrid[i]-vgrid[i+1]),
-				std::max(std::abs(cells[i].velocity - vgrid[i]), std::abs(cells[i].velocity - vgrid[i+1]))) 
+			dt_1 = std::max(dt_1, 2 * (std::max(std::abs(vgrid[i] - vgrid[i + 1]),
+				std::max(std::abs(cells[i].velocity - vgrid[i]), std::abs(cells[i].velocity - vgrid[i + 1])))
 				+ eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
 		}
 		dt_1 = max(dt_1, force_inverse_dt);
@@ -199,7 +288,7 @@ namespace
 		return cfl / dt_1;
 	}
 
-	void GetFluxes(vector<pair<Primitive, Primitive> > const& interp_values, RiemannSolver const&rs, std::vector<Extensive> &res, IdealGas const& eos, 
+	void GetFluxes(vector<pair<Primitive, Primitive> > const& interp_values, RiemannSolver const&rs, std::vector<Extensive> &res, IdealGas const& eos,
 		std::vector<double> const & vgrid)
 	{
 		size_t N = interp_values.size();
@@ -209,7 +298,7 @@ namespace
 	}
 
 	void UpdateExtensives(vector<Extensive> &cells, std::vector<Extensive> &fluxes, double dt, Geometry const& geo,
-		std::vector<double> const& edges ,vector<pair<Primitive, Primitive> > const &interp_values, std::vector<double> const& vgrid)
+		std::vector<double> const& edges, vector<pair<Primitive, Primitive> > const &interp_values, std::vector<double> const& vgrid)
 	{
 		size_t N = cells.size();
 		for (size_t i = 0; i < N; ++i)
@@ -247,7 +336,7 @@ namespace
 				eo.AddEntry("Entropy", cells[i].entropy);
 				eo.AddEntry("dt", dt);
 				eo.AddEntry("Left edge", edges[i]);
-				eo.AddEntry("Right edge", edges[i+1]);
+				eo.AddEntry("Right edge", edges[i + 1]);
 				eo.AddEntry("Left density", interp_values[i].first.density);
 				eo.AddEntry("Left pressure", interp_values[i].first.pressure);
 				eo.AddEntry("Left velocity", interp_values[i].first.velocity);
@@ -281,77 +370,186 @@ namespace
 		return true;
 	}
 
+	void update_cell_regular(vector<Extensive> &extensive, vector<double> const& edges, IdealGas const& eos,
+		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,
+		std::vector<double> const& vgrid, size_t i, size_t N)
+	{
+		double vol = geo.GetVolume(edges, i);
+		cells[i].density = extensive[i].mass / vol;
+		cells[i].velocity = extensive[i].momentum / extensive[i].mass;
+		cells[i].energy = extensive[i].et / extensive[i].mass;
+		double et = cells[i].energy;
+		bool entropy_use = false;
+		if (i == 0)
+			entropy_use = ShouldUseEntropy(std::abs(cells[i].velocity - cells[i + 1].velocity), et);
+		else
+			if (i == (N - 1))
+				entropy_use = ShouldUseEntropy(std::abs(cells[i].velocity - cells[i - 1].velocity), et);
+			else
+				entropy_use = ShouldUseEntropy(std::max(std::abs(cells[i].velocity - cells[i - 1].velocity), std::abs(cells[i].velocity - cells[i + 1].velocity)), et);
+		if (entropy_use)
+		{
+			cells[i].entropy = extensive[i].entropy / extensive[i].mass;
+			cells[i].pressure = eos.sd2p(cells[i].entropy, cells[i].density);
+			cells[i].energy = eos.dp2e(cells[i].density, cells[i].pressure);
+			et = extensive[i].mass*cells[i].energy;
+			extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass + et;
+			extensive[i].et = et;
+		}
+		else
+		{
+			double et2 = (extensive[i].energy - 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass) / extensive[i].mass;
+			if (et2 > 0.95*et && et2 < 1.05*et)
+			{
+				et = et2;
+				cells[i].energy = et;
+				extensive[i].et = et * extensive[i].mass;
+			}
+			cells[i].pressure = eos.de2p(cells[i].density, et);
+			cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
+			extensive[i].entropy = cells[i].entropy*extensive[i].mass;
+		}
+		if (!(cells[i].pressure > 0) || !(cells[i].entropy > 0))
+		{
+			UniversalError eo("Bad cell update");
+			eo.AddEntry("Cell index", i);
+#ifdef RICH_MPI
+			int rank = 0;
+			MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+			eo.AddEntry("rank", rank);
+#endif
+			eo.AddEntry("Left density", interp_values[i].first.density);
+			eo.AddEntry("Left pressure", interp_values[i].first.pressure);
+			eo.AddEntry("Left velocity", interp_values[i].first.velocity);
+			eo.AddEntry("Left entropy", interp_values[i].first.entropy);
+			eo.AddEntry("Right density", interp_values[i].second.density);
+			eo.AddEntry("Right pressure", interp_values[i].second.pressure);
+			eo.AddEntry("Right velocity", interp_values[i].second.velocity);
+			eo.AddEntry("Right entropy", interp_values[i].second.entropy);
+			eo.AddEntry("vgrid", vgrid[i]);
+			eo.AddEntry("Left density", interp_values[i + 1].first.density);
+			eo.AddEntry("Left pressure", interp_values[i + 1].first.pressure);
+			eo.AddEntry("Left velocity", interp_values[i + 1].first.velocity);
+			eo.AddEntry("Left entropy", interp_values[i + 1].first.entropy);
+			eo.AddEntry("Right density", interp_values[i + 1].second.density);
+			eo.AddEntry("Right pressure", interp_values[i + 1].second.pressure);
+			eo.AddEntry("Right velocity", interp_values[i + 1].second.velocity);
+			eo.AddEntry("Right entropy", interp_values[i + 1].second.entropy);
+			eo.AddEntry("vgrid", vgrid[i + 1]);
+			throw eo;
+		}
+	}
+
+	void EntropyFixSR(IdealGas const& eos, Primitive &res, Extensive &extensive,
+		double vol)
+	{
+		double new_pressure = eos.sd2p(res.entropy, res.density);
+		res.pressure = new_pressure;
+		double energy = eos.dp2e(res.density, res.pressure);
+		double gamma = std::sqrt(1.0 / (1 - res.velocity * res.velocity));
+		extensive.energy = extensive.mass*(energy*gamma + gamma - 1) -
+			res.pressure*vol;
+	}
+
+	void update_cell_SR(vector<Extensive> &extensives, vector<double> const& edges, IdealGas const& eos,
+		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,
+		std::vector<double> const& vgrid, size_t i, size_t N, double G)
+	{
+		try
+		{
+			double v = GetVelocity(extensives[i], G);
+			const double volume = 1.0 / geo.GetVolume(edges, i);
+			if (std::abs(extensives[i].momentum)*1e8 < extensives[i].mass)
+			{
+				cells[i].velocity = extensives[i].momentum / extensives[i].mass;
+				v = std::abs(cells[i].velocity);
+			}
+			else
+			{
+				cells[i].velocity = v * extensives[i].momentum /
+					std::abs(extensives[i].momentum);
+			}
+			double gamma_1 = std::sqrt(1 - cells[i].velocity * cells[i].velocity);
+			cells[i].density = extensives[i].mass *gamma_1*volume;
+			if (cells[i].density < 0)
+				throw UniversalError("Negative density");
+			if (v < 1e-5)
+				cells[i].pressure = (G - 1)*((extensives[i].energy -
+					extensives[i].momentum * cells[i].velocity)*volume
+					+ (0.5*cells[i].velocity*cells[i].velocity)*cells[i].density);
+			else
+				cells[i].pressure = (G - 1)*(extensives[i].energy*volume -
+					extensives[i].momentum * cells[i].velocity * volume
+					+ (1.0 / gamma_1 - 1)*cells[i].density);
+			if (!(extensives[i].entropy > 0))
+			{
+				UniversalError eo("Negative entropy");
+				eo.AddEntry("Extensive Entropy", extensives[i].entropy);
+				throw eo;
+			}
+			// Do we have a negative thermal energy?
+			if (cells[i].pressure < 0)
+			{
+				EntropyFixSR(eos, cells[i], extensives[i], 1.0 / volume);
+			}
+			else
+			{
+				double new_entropy = eos.dp2s(cells[i].density, cells[i].pressure);
+				// We don't need the entropy fix, update entropy
+				cells[i].entropy = new_entropy;
+				extensives[i].entropy = new_entropy * extensives[i].mass;
+			}
+			if (!(cells[i].density > 0) || !(cells[i].pressure > 0) ||
+				(!std::isfinite(std::abs(extensives[i].momentum))))
+			{
+				UniversalError eo("Negative quantity in cell update");
+				throw eo;
+			}
+			cells[i].energy = eos.dp2e(cells[i].density, cells[i].pressure);
+		}
+		catch (UniversalError &eo)
+		{
+			eo.AddEntry("Cell index", i);
+#ifdef RICH_MPI
+			int rank = 0;
+			MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+			eo.AddEntry("rank", rank);
+#endif
+			eo.AddEntry("Left density", interp_values[i].first.density);
+			eo.AddEntry("Left pressure", interp_values[i].first.pressure);
+			eo.AddEntry("Left velocity", interp_values[i].first.velocity);
+			eo.AddEntry("Left entropy", interp_values[i].first.entropy);
+			eo.AddEntry("Right density", interp_values[i].second.density);
+			eo.AddEntry("Right pressure", interp_values[i].second.pressure);
+			eo.AddEntry("Right velocity", interp_values[i].second.velocity);
+			eo.AddEntry("Right entropy", interp_values[i].second.entropy);
+			eo.AddEntry("vgrid", vgrid[i]);
+			eo.AddEntry("Left density", interp_values[i + 1].first.density);
+			eo.AddEntry("Left pressure", interp_values[i + 1].first.pressure);
+			eo.AddEntry("Left velocity", interp_values[i + 1].first.velocity);
+			eo.AddEntry("Left entropy", interp_values[i + 1].first.entropy);
+			eo.AddEntry("Right density", interp_values[i + 1].second.density);
+			eo.AddEntry("Right pressure", interp_values[i + 1].second.pressure);
+			eo.AddEntry("Right velocity", interp_values[i + 1].second.velocity);
+			eo.AddEntry("Right entropy", interp_values[i + 1].second.entropy);
+			eo.AddEntry("vgrid", vgrid[i + 1]);
+			throw eo;
+		}
+	}
+
 	void UpdateCells(vector<Extensive> &extensive, vector<double> const& edges, IdealGas const& eos,
-		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,std::vector<double> const& vgrid)
+		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,
+		std::vector<double> const& vgrid, bool SR)
 	{
 		size_t N = cells.size();
 		for (int i = 0; i < N; ++i)
 		{
-			double vol = geo.GetVolume(edges, i);
-			cells[i].density = extensive[i].mass / vol;
-			cells[i].velocity = extensive[i].momentum / extensive[i].mass;
-			cells[i].energy = extensive[i].et / extensive[i].mass;
-			double et = cells[i].energy;
-			bool entropy_use = false;
-			if (i == 0)
-				entropy_use = ShouldUseEntropy(std::abs(cells[i].velocity - cells[i + 1].velocity), et);
+			if (SR)
+				update_cell_regular(extensive, edges, eos, cells, geo, interp_values,
+					vgrid, i, N);
 			else
-				if (i == (N - 1))
-					entropy_use = ShouldUseEntropy(std::abs(cells[i].velocity - cells[i - 1].velocity), et);
-				else
-					entropy_use = ShouldUseEntropy(std::max(std::abs(cells[i].velocity - cells[i - 1].velocity), std::abs(cells[i].velocity - cells[i + 1].velocity)), et);
-			if (entropy_use)
-			{
-				cells[i].entropy = extensive[i].entropy / extensive[i].mass;
-				cells[i].pressure = eos.sd2p(cells[i].entropy , cells[i].density);
-				cells[i].energy = eos.dp2e(cells[i].density, cells[i].pressure);
-				et = extensive[i].mass*cells[i].energy;
-				extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass + et;
-				extensive[i].et = et;
-			}
-			else
-			{
-				double et2 = (extensive[i].energy - 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass)/extensive[i].mass;
-				if (et2 > 0.95*et && et2 < 1.05*et)
-				{
-					et = et2;
-					cells[i].energy = et;
-					extensive[i].et = et * extensive[i].mass;
-				}			
-				cells[i].pressure = eos.de2p(cells[i].density, et);
-				cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
-				extensive[i].entropy = cells[i].entropy*extensive[i].mass;
-			}
-			if (!(cells[i].pressure > 0) || !(cells[i].entropy > 0))
-			{
-				UniversalError eo("Bad cell update");
-				eo.AddEntry("Cell index", i);
-#ifdef RICH_MPI
-				int rank = 0;
-				MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-				eo.AddEntry("rank", rank);
-#endif
-				eo.AddEntry("Left density", interp_values[i].first.density);
-				eo.AddEntry("Left pressure", interp_values[i].first.pressure);
-				eo.AddEntry("Left velocity", interp_values[i].first.velocity);
-				eo.AddEntry("Left entropy", interp_values[i].first.entropy);
-				eo.AddEntry("Right density", interp_values[i].second.density);
-				eo.AddEntry("Right pressure", interp_values[i].second.pressure);
-				eo.AddEntry("Right velocity", interp_values[i].second.velocity);
-				eo.AddEntry("Right entropy", interp_values[i].second.entropy);
-				eo.AddEntry("vgrid", vgrid[i]);
-				eo.AddEntry("Left density", interp_values[i+1].first.density);
-				eo.AddEntry("Left pressure", interp_values[i + 1].first.pressure);
-				eo.AddEntry("Left velocity", interp_values[i + 1].first.velocity);
-				eo.AddEntry("Left entropy", interp_values[i + 1].first.entropy);
-				eo.AddEntry("Right density", interp_values[i + 1].second.density);
-				eo.AddEntry("Right pressure", interp_values[i + 1].second.pressure);
-				eo.AddEntry("Right velocity", interp_values[i + 1].second.velocity);
-				eo.AddEntry("Right entropy", interp_values[i + 1].second.entropy);
-				eo.AddEntry("vgrid", vgrid[i + 1]);
-				throw eo;
-			}
-			
+				update_cell_SR(extensive, edges, eos, cells, geo, interp_values,
+					vgrid, i, N, eos.getAdiabaticIndex());
 		}
 	}
 }
@@ -359,30 +557,28 @@ namespace
 void hdsim::ReCalcCells(vector<Extensive> &extensive)
 {
 	size_t N = cells_.size();
+	std::vector<std::pair<Primitive, Primitive> > interp_values;
+	std::vector<double> vgrid;
 	for (size_t i = 0; i < N; ++i)
 	{
-		double vol = geo_.GetVolume(edges_, i);
-		cells_[i].density = extensive[i].mass / vol;
-		cells_[i].velocity = extensive[i].momentum / extensive[i].mass;
-		const double et = extensive[i].et / extensive[i].mass;
-		cells_[i].pressure = eos_.de2p(cells_[i].density, et);
-		cells_[i].energy = et;
-		cells_[i].entropy = eos_.dp2s(cells_[i].density, cells_[i].pressure);
-		extensive[i].entropy = cells_[i].entropy*extensive[i].mass;
+		if (SR_)
+			update_cell_SR(extensive, edges_, eos_, cells_, geo_, interp_values, vgrid,
+				i, N, eos_.getAdiabaticIndex());
+		else
+			update_cell_regular(extensive, edges_, eos_, cells_, geo_, interp_values, vgrid,
+				i, N);
 	}
 }
 
-void hdsim::ReCalcExtensives(vector<Primitive> const& cells)
+void hdsim::ReCalcExtensives(vector<Primitive> &cells)
 {
 	size_t N = cells.size();
 	for (size_t i = 0; i < N; ++i)
 	{
-		double vol = geo_.GetVolume(edges_, i);
-		extensives_[i].mass = vol * cells[i].density;
-		extensives_[i].momentum = extensives_[i].mass*cells[i].velocity;
-		extensives_[i].et = extensives_[i].mass*cells[i].energy;
-		extensives_[i].entropy = extensives_[i].mass*cells[i].entropy;
-		extensives_[i].energy = extensives_[i].et + 0.5*extensives_[i].momentum*extensives_[i].momentum / extensives_[i].mass;
+		if(SR_)
+			PrimitiveToConservedSR(geo_, edges_, cells, extensives_, eos_, time_, i);
+		else
+			PrimitiveToConserved(geo_, edges_, cells, extensives_, eos_, time_, i);
 	}
 }
 
@@ -403,8 +599,8 @@ void hdsim::TimeAdvance()
 #endif
 	);
 	std::vector<double> vgrid(edges_.size(), 0);
-	GetFluxes(interp_values_, rs_, fluxes_, eos_,vgrid);
-	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_, dt_suggest_,vgrid);
+	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid);
+	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_, dt_suggest_, vgrid);
 
 
 	/*if (BoundarySolution_ != 0)
@@ -416,14 +612,14 @@ void hdsim::TimeAdvance()
 			rs_values_.back() = bvalues.second;
 	}*/
 
-	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_,interp_values_,vgrid);
+	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_, interp_values_, vgrid);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_);
 	time_ += dt;
 	++cycle_;
 	AMR(
 #ifdef RICH_MPI
-		ghost_cells , ghost_edges
+		ghost_cells, ghost_edges
 #endif
 	);
 }
@@ -439,7 +635,7 @@ void hdsim::TimeAdvance2()
 		, ghost_cells, ghost_edges
 #endif
 	);
-	std::vector<double> vgrid = GetVGrid(interp_values_,time_,edges_);
+	std::vector<double> vgrid = GetVGrid(interp_values_, time_, edges_);
 
 	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid);
 
@@ -460,7 +656,7 @@ void hdsim::TimeAdvance2()
 	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_, interp_values_, vgrid);
 	MoveGrid(vgrid, edges_, dt);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_);
 	time_ += dt;
 #ifdef RICH_MPI
 	ghost_cells = SendRecvPrimitive(cells_);
@@ -494,7 +690,7 @@ void hdsim::TimeAdvance2()
 #ifdef RICH_MPI
 	RedistributeExtensives(extensives_, edges_, cells_);
 #endif
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_);
 	++cycle_;
 	AMR(
 #ifdef RICH_MPI
@@ -513,7 +709,7 @@ void hdsim::AMR(
 	if (!(AMR_ratio_ > 0))
 		return;
 	bool planar = (geo_.GetArea(1) < (1 + 1e-7) && geo_.GetArea(1) > (1 - 1e-7));
-	size_t Nlevels = 2;
+	size_t Nlevels = 10;
 #ifdef RICH_MPI
 	Nlevels = NGHOSTCELLS;
 #endif
@@ -681,7 +877,7 @@ void hdsim::AMR(
 						&& (temp_cells[i + 1 + j + shift].pressure < temp_cells[i + j + shift].pressure
 							*pratio) && (temp_cells[i + 1 + j + shift].pressure*pratio >
 								temp_cells[i + j + shift].pressure);
-					double l_reduce = std::pow(2.0, -0.33*static_cast<double>(Nlevels-j-1));
+					double l_reduce = std::pow(2.0, -0.33*static_cast<double>(Nlevels - j - 1));
 					if (!local_smooth && dx > (AMR_ratio_*1.4*l_reduce*(planar ? 1.0 : edges_[i])))
 					{
 						smooth = true;
@@ -747,7 +943,7 @@ void hdsim::AMR(
 					new_cells[i + counter].entropy;
 			}
 			else
-				new_extensive[i+counter] = CalcExtensive(geo_, new_edges, new_cells[i + counter], i + counter);
+				new_extensive[i + counter] = CalcExtensive(geo_, new_edges, new_cells[i + counter], i + counter);
 			if (counter == Nadd && i < (N - 1))
 			{
 				std::copy(edges_.begin() + i + 2, edges_.end(), new_edges.begin() + i + counter + 2);

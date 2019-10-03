@@ -11,8 +11,9 @@ class MinMod : public Interpolation
 {
 private:
 	Boundary const& boundary_;
+	bool SR_;
 public:
-	MinMod(Boundary const& boundary);
+	MinMod(Boundary const& boundary,bool SR = false);
 	~MinMod();
 
 	void GetInterpolatedValues(vector<Primitive> const& cells, vector<double> const& edges, vector<pair<Primitive,

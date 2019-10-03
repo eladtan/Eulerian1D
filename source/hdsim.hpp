@@ -33,6 +33,7 @@ private:
 	Geometry const& geo_;
 	const double AMR_ratio_;
 	//	BoundarySolution const* BoundarySolution_;
+	bool SR_;
 	double dt_suggest_;
 	void AMR(
 #ifdef RICH_MPI
@@ -42,7 +43,8 @@ private:
 	);
 public:
 	hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& edges, Interpolation const& interp,
-		IdealGas const& eos, RiemannSolver const& rs, SourceTerm const& source, Geometry const& geo, const double AMR_ratio = 0);
+		IdealGas const& eos, RiemannSolver const& rs, SourceTerm const& source, Geometry const& geo, 
+		const double AMR_ratio = 0, bool SR = false);
 	~hdsim();
 	void TimeAdvance2();
 	void TimeAdvance();
@@ -60,7 +62,7 @@ public:
 	void SetEcool(double E);
 	void SetCycle(size_t cyc);
 	void ReCalcCells(vector<Extensive> & extensives);
-	void ReCalcExtensives(vector<Primitive> const& cells);
+	void ReCalcExtensives(vector<Primitive> &cells);
 	void SuggestTimeStep(double dt);
 };
 #endif //HDSIM_HPP
