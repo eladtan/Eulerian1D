@@ -106,7 +106,7 @@ namespace
 		extensives[i].et = enthalpy * extensives[i].mass;
 
 		if (std::abs(cells[i].velocity) < 1e-5)
-			extensives[i].energy = (gamma*enthalpy + 0.5*cells[i].velocity,
+			extensives[i].energy = (gamma*enthalpy + 0.5*cells[i].velocity*
 				cells[i].velocity) * extensives[i].mass - cells[i].pressure*vol;
 		else
 			extensives[i].energy = (gamma*enthalpy + (gamma - 1))* extensives[i].mass
@@ -506,6 +506,7 @@ namespace
 				throw eo;
 			}
 			cells[i].energy = eos.dp2e(cells[i].density, cells[i].pressure);
+			extensives[i].et = cells[i].energy*extensives[i].mass;
 		}
 		catch (UniversalError &eo)
 		{
@@ -545,11 +546,11 @@ namespace
 		for (int i = 0; i < N; ++i)
 		{
 			if (SR)
-				update_cell_regular(extensive, edges, eos, cells, geo, interp_values,
-					vgrid, i, N);
-			else
 				update_cell_SR(extensive, edges, eos, cells, geo, interp_values,
 					vgrid, i, N, eos.getAdiabaticIndex());
+			else
+				update_cell_regular(extensive, edges, eos, cells, geo, interp_values,
+					vgrid, i, N);
 		}
 	}
 }

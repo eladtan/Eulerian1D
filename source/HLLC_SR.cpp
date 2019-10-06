@@ -185,7 +185,8 @@ Extensive HLLC_SR::SolveRS(Primitive const& left, Primitive const& right, IdealG
 		f_gr = starred_flux(local_right, ws.center, ws.right, vface, pstar);
 	else if (ws.right < vface)
 		f_gr = SR_Primitive2Flux(local_right, vface);
-
+	f_gr.et = 0;
+	f_gr.entropy = f_gr.mass * ((f_gr.mass > 0) ? local_left.entropy : local_right.entropy);
 #ifdef RICH_DEBUG
 	bool good = true;
 	if (!std::isfinite(f_gr.energy))

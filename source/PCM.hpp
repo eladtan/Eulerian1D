@@ -11,8 +11,9 @@ class PCM : public Interpolation
 {
 private:
 	Boundary const& boundary_;
+	bool SR_;
 public:
-	PCM(Boundary const& boundary);
+	PCM(Boundary const& boundary, bool SR);
 	~PCM();
 
 	void GetInterpolatedValues(vector<Primitive> const& cells, vector<double> const& edges, vector<pair<Primitive,

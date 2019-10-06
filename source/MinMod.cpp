@@ -55,7 +55,7 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 	std::vector<Primitive> new_cells(cells);
 	if (SR_)
 	{
-		for (size_t i = 0; i < N; ++i)
+		for (size_t i = 0; i < N - 1; ++i)
 		{
 			double gamma = 1.0 / std::sqrt(1.0 -
 				new_cells[i].velocity*new_cells[i].velocity);
@@ -95,7 +95,7 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 			new_ghost_cells[NGHOSTCELLS + 1], edges[N - 2], edges[N - 1],
 			ghost_edges[NGHOSTCELLS], ghost_edges[NGHOSTCELLS + 1]);
 		values[N - 1].second = new_ghost_cells[NGHOSTCELLS] - slope * 0.5 * (ghost_edges[NGHOSTCELLS] - edges[N - 1]);
-		vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0, time);
+		vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0, time,SR_);
 		values[0].first = left[0];
 		values[0].second = left[1];
 		values[1].first = left[2];
@@ -113,7 +113,7 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 				new_cells[0], ghost_edges[NGHOSTCELLS - 2], ghost_edges[NGHOSTCELLS - 1],
 				edges[0], edges[1]);
 			values[0].first = new_ghost_cells[NGHOSTCELLS - 1] + slope * 0.5 * (edges[0] - ghost_edges[NGHOSTCELLS - 1]);
-			vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size() - 1, time);
+			vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size() - 1, time, SR_);
 			values[N - 2].second = right[0];
 			values[N - 1].first = right[1];
 			values[N - 1].second = right[2];
@@ -142,11 +142,11 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 		}
 	}
 #else
-	vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0, time);
+	vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0, time,SR_);
 	values[0].first = left[0];
 	values[0].second = left[1];
 	values[1].first = left[2];
-	vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size() - 1, time);
+	vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size() - 1, time,SR_);
 	values[N - 2].second = right[0];
 	values[N - 1].first = right[1];
 	values[N - 1].second = right[2];

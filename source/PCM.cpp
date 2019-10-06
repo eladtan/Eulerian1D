@@ -1,7 +1,7 @@
 #include "PCM.hpp"
 #include <cmath>
 
-PCM::PCM(Boundary const& boundary) :boundary_(boundary)
+PCM::PCM(Boundary const& boundary, bool SR) :boundary_(boundary), SR_(SR)
 {}
 
 
@@ -25,8 +25,8 @@ void PCM::GetInterpolatedValues(vector<Primitive> const & cells, vector<double> 
 		values[i + 1].first = cells[i];
 	}
 	// Do boundaries
-	vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0, time);
-	vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size() - 1, time);
+	vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0, time,SR_);
+	vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size() - 1, time,SR_);
 	values[0].first = left[0];
 	values[N - 1].second = right[2];
 }
