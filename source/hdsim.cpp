@@ -305,14 +305,6 @@ namespace
 		{
 			double v = cells[i].momentum / cells[i].mass;
 
-			//double oldEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
-			double newP = cells[i].momentum + fluxes[i].momentum * geo.GetArea(edges[i])*dt;
-			double newM = cells[i].mass + fluxes[i].mass* geo.GetArea(edges[i])*dt;
-			//double newEk0 = newP * newP*0.5 / newM;
-			newP = cells[i].momentum - fluxes[i + 1].momentum * geo.GetArea(edges[i + 1])*dt;
-			newM = cells[i].mass - fluxes[i + 1].mass* geo.GetArea(edges[i + 1])*dt;
-			//double newEk1 = newP * newP*0.5 / newM;
-
 			double dP = -(fluxes[i + 1].momentum * geo.GetArea(edges[i + 1]) - fluxes[i].momentum * geo.GetArea(edges[i]))*dt;
 			cells[i].momentum += dP;
 			double dE = -(fluxes[i + 1].energy* geo.GetArea(edges[i + 1]) - fluxes[i].energy* geo.GetArea(edges[i]))*dt;

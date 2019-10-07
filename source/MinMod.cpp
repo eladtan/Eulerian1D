@@ -12,8 +12,8 @@ namespace
 		double e0, double e1, double e2, double e3)
 	{
 		Primitive slope;
-		const Primitive sl = (center - left) / (0.5*(e2 - e0));
-		const Primitive sr = (right - center) / (0.5*(e3 - e1));
+		const Primitive sl = 1.5*(center - left) / (0.5*(e2 - e0));
+		const Primitive sr = 1.5*(right - center) / (0.5*(e3 - e1));
 		const Primitive sc = (right - left) / (0.5*(e3 + e2 - e0 - e1));
 		if (sl.density*sr.density < 0)
 			slope.density = 0;
