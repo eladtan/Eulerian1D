@@ -233,7 +233,7 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 		double al = std::sqrt(left.pressure*gamma_ / left.density);
 		if (left_shock)
 		{
-			double Sl = left.velocity - al * std::sqrt((gamma_ + 1)*p_u_star.first / (2 * gamma_*left.pressure + (gamma_ - 1) / (2 * gamma_)));
+			double Sl = left.velocity - al * std::sqrt((gamma_ + 1)*p_u_star.first / (2 * gamma_*left.pressure) + (gamma_ - 1) / (2 * gamma_));
 			if (Sl > vface)
 			{
 				res.mass = (left.velocity-vface)*left.density;
@@ -294,7 +294,7 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 		double ar = std::sqrt(right.pressure*gamma_ / right.density);
 		if (right_shock)
 		{
-			double Sr = right.velocity + ar * std::sqrt((gamma_ + 1)*p_u_star.first / (2 * gamma_*right.pressure + (gamma_ - 1) / (2 * gamma_)));
+			double Sr = right.velocity + ar * std::sqrt((gamma_ + 1)*p_u_star.first / (2 * gamma_*right.pressure) + (gamma_ - 1) / (2 * gamma_));
 			if (Sr < vface)
 			{
 				res.mass = (right.velocity-vface)*right.density;
