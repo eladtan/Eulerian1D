@@ -57,23 +57,23 @@ set_environ_vars.sh: | external_libraries/include/H5Cpp.h external_libraries/boo
 	echo export\ LD_PATH=$(LD_PATH):`pwd`/external_libraries/lib >> set_environ_vars.sh
 	echo export\ RICH_ROOT=`pwd` >> set_environ_vars.sh
 
-external_libraries/include/H5Cpp.h: external_libraries/hdf5_dump/hdf5-1.10.4/c++/src/H5Cpp.h
-	cd external_libraries/hdf5_dump/hdf5-1.10.4 && \
+external_libraries/include/H5Cpp.h: external_libraries/hdf5_dump/hdf5-1.10.5/c++/src/H5Cpp.h
+	cd external_libraries/hdf5_dump/hdf5-1.10.5 && \
 	./configure --enable-cxx --prefix=`cd ../.. && pwd`
-	cd external_libraries/hdf5_dump/hdf5-1.10.4 && make
-	cd external_libraries/hdf5_dump/hdf5-1.10.4 && make check
-	cd external_libraries/hdf5_dump/hdf5-1.10.4 && make install
+	cd external_libraries/hdf5_dump/hdf5-1.10.5 && make
+	cd external_libraries/hdf5_dump/hdf5-1.10.5 && make check
+	cd external_libraries/hdf5_dump/hdf5-1.10.5 && make install
 
-external_libraries/hdf5_dump/hdf5-1.10.4/c++/src/H5Cpp.h: | external_libraries/hdf5_dump/hdf5-1.10.4.tar.gz
-	cd external_libraries/hdf5_dump/ && tar xf ./hdf5-1.10.4.tar.gz
+external_libraries/hdf5_dump/hdf5-1.10.5/c++/src/H5Cpp.h: | external_libraries/hdf5_dump/hdf5-1.10.5.tar.gz
+	cd external_libraries/hdf5_dump/ && tar xf ./hdf5-1.10.5.tar.gz
 
 external_libraries/boost_dump/boost_1_66_0/boost/container/static_vector.hpp: | external_libraries/boost_dump/boost_1_66_0.tar.bz2
 	cd external_libraries/boost_dump/ && tar xf ./boost_1_66_0.tar.bz2
 
-external_libraries/hdf5_dump/hdf5-1.10.4.tar.gz:
+external_libraries/hdf5_dump/hdf5-1.10.5.tar.gz:
 	mkdir -p external_libraries/hdf5_dump
 	cd external_libraries/hdf5_dump && \
-	wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.4/src/hdf5-1.10.4.tar.gz
+	wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.5/src/hdf5-1.10.5.tar.gz
 
 external_libraries/boost_dump/boost_1_66_0.tar.bz2:
 	mkdir -p external_libraries/boost_dump
