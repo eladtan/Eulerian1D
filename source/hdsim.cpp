@@ -845,7 +845,7 @@ void hdsim::AMR(
 			double Tratio2 = 1.2;
 			// Are we smooth?
 			bool smooth = false;
-			for (size_t j = 0; j < (Nlevels - 1); ++j)
+			for (size_t j = 1; j < Nlevels; ++j)
 			{
 				bool local_smooth = (temp_cells[i - Nlevels + 1 + j + shift].density < temp_cells[i - Nlevels + j + shift].density
 					* dratio) && (temp_cells[i - Nlevels + 1 + j + shift].density * dratio >
@@ -862,7 +862,7 @@ void hdsim::AMR(
 			}
 			if (!smooth)
 			{
-				for (size_t j = 1; j < (Nlevels - 1); ++j)
+				for (size_t j = 0; j < (Nlevels - 1); ++j)
 				{
 					bool local_smooth = (temp_cells[i + 1 + j + shift].density < temp_cells[i + j + shift].density
 						* dratio) && (temp_cells[i + 1 + j + shift].density * dratio >
@@ -881,16 +881,16 @@ void hdsim::AMR(
 			if (!smooth)
 				continue;
 			bool smooth_left = (temp_cells[i + shift].density < temp_cells[i - 1 + shift].density
-				* dratio) && (temp_cells[i + shift].density * dratio >
+				* dratio * 1.5) && (temp_cells[i + shift].density * dratio * 1.5 >
 					temp_cells[i - 1 + shift].density)
 				&& (temp_cells[i + shift].pressure < temp_cells[i - 1 + shift].pressure
-					*pratio) && (temp_cells[i + shift].pressure*pratio >
+					*pratio * 1.5) && (temp_cells[i + shift].pressure*pratio*1.5 >
 						temp_cells[i - 1 + shift].pressure);
 			bool smooth_right = (temp_cells[i + shift].density <
-				temp_cells[i + 1 + shift].density * dratio) && (temp_cells[i + shift].density
-					* dratio > temp_cells[i + 1 + shift].density)
+				temp_cells[i + 1 + shift].density * dratio*1.5) && (temp_cells[i + shift].density
+					* dratio*1.5 > temp_cells[i + 1 + shift].density)
 				&& (temp_cells[i + shift].pressure < temp_cells[i + 1 + shift].pressure
-					*pratio) && (temp_cells[i + shift].pressure*pratio >
+					*pratio*1.5) && (temp_cells[i + shift].pressure*pratio*1.5 >
 						temp_cells[i + 1 + shift].pressure);
 			if (smooth_left && smooth_right)
 			{
