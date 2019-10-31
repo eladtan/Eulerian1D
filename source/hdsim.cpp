@@ -212,8 +212,16 @@ namespace
 	std::vector<double> GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values, double time, std::vector<double> const& edges)
 	{
 		size_t N = edges.size();
-		std::vector<double> res(N, 0);
-
+		double vgrid = interp_values[0].first.velocity;
+#ifdef RICH_MPI
+		int rank = 0;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		double temp = 0;
+		MPI_Scatter(&vgrid, 1, MPI_DOUBLE, &temp, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+		if(rank > 0)
+			vgrid = temp;
+#endif
+		std::vector<double> res(N, vgrid);
 		return res;
 	}
 }
