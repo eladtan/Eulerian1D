@@ -216,10 +216,7 @@ namespace
 #ifdef RICH_MPI
 		int rank = 0;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-		double temp = 0;
-		MPI_Scatter(&vgrid, 1, MPI_DOUBLE, &temp, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-		if(rank > 0)
-			vgrid = temp;
+		MPI_Bcast(&vgrid, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 #endif
 		std::vector<double> res(N, vgrid);
 		return res;
