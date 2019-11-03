@@ -369,7 +369,7 @@ namespace
 
 	void update_cell_regular(vector<Extensive> &extensive, vector<double> const& edges, IdealGas const& eos,
 		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,
-		std::vector<double> const& vgrid, size_t i, size_t N, double dt)
+		std::vector<double> const& vgrid, size_t i, size_t N, double dt = 0)
 	{
 		double vol = geo.GetVolume(edges, i);
 		cells[i].density = extensive[i].mass / vol;
@@ -539,7 +539,7 @@ namespace
 
 	void UpdateCells(vector<Extensive> &extensive, vector<double> const& edges, IdealGas const& eos,
 		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,
-		std::vector<double> const& vgrid, bool SR)
+		std::vector<double> const& vgrid, bool SR, double dt)
 	{
 		size_t N = cells.size();
 		for (int i = 0; i < N; ++i)
@@ -549,7 +549,7 @@ namespace
 					vgrid, i, N, eos.getAdiabaticIndex());
 			else
 				update_cell_regular(extensive, edges, eos, cells, geo, interp_values,
-					vgrid, i, N);
+					vgrid, i, N, dt);
 		}
 	}
 }
@@ -614,7 +614,7 @@ void hdsim::TimeAdvance()
 
 	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_, interp_values_, vgrid);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_, dt);
 	time_ += dt;
 	++cycle_;
 	AMR(
@@ -656,7 +656,7 @@ void hdsim::TimeAdvance2()
 	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_, interp_values_, vgrid);
 	MoveGrid(vgrid, edges_, dt);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_, dt);
 	time_ += dt;
 #ifdef RICH_MPI
 	ghost_cells = SendRecvPrimitive(cells_);
@@ -690,7 +690,7 @@ void hdsim::TimeAdvance2()
 #ifdef RICH_MPI
 	RedistributeExtensives(extensives_, edges_, cells_);
 #endif
-	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_);
+	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_, dt);
 	++cycle_;
 	AMR(
 #ifdef RICH_MPI
