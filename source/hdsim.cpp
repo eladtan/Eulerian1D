@@ -294,12 +294,57 @@ namespace
 	}
 
 	void GetFluxes(vector<pair<Primitive, Primitive> > const& interp_values, RiemannSolver const&rs, std::vector<Extensive> &res, IdealGas const& eos,
-		std::vector<double> const & vgrid)
+		std::vector<double> const & vgrid, std::vector<Primitive> const& cells, std::vector<double> const& edges
+#ifdef RICH_MPI
+		, std::array<Primitive, NGHOSTCELLS * 2> const& ghost_cells,
+		std::array<double, 2 * NGHOSTCELLS> const& ghost_edges
+#endif
+	)
 	{
+		int i = 0;
 		size_t N = interp_values.size();
 		res.resize(N);
-		for (int i = 0; i < N; ++i)
-			res[i] = rs.SolveRS(interp_values[i].first, interp_values[i].second, eos, vgrid[i]);
+		try
+		{
+			for (i = 0; i < N; ++i)
+				res[i] = rs.SolveRS(interp_values[i].first, interp_values[i].second, eos, vgrid[i]);
+		}
+		catch (UniversalError & eo)
+		{
+			eo.AddEntry("Edge number", i);
+			eo.AddEntry("Edge loc", edges[i]);
+			eo.AddEntry("cell size", cells.size());
+			eo.AddEntry("vgrid", vgrid[i]);
+			if (i > 0)
+			{
+				eo.AddEntry("Left density", cells[i - 1].density);
+				eo.AddEntry("Left pressure", cells[i - 1].pressure);
+				eo.AddEntry("Left velocity", cells[i - 1].velocity);
+				eo.AddEntry("Left entropy", cells[i - 1].entropy);
+			}
+			else
+			{
+				eo.AddEntry("Left density", ghost_cells[NGHOSTCELLS - 1].density);
+				eo.AddEntry("Left pressure", ghost_cells[NGHOSTCELLS - 1].pressure);
+				eo.AddEntry("Left velocity", ghost_cells[NGHOSTCELLS - 1].velocity);
+				eo.AddEntry("Left entropy", ghost_cells[NGHOSTCELLS - 1].entropy);
+			}
+			if (i < cells.size())
+			{
+				eo.AddEntry("Right density", cells[i].density);
+				eo.AddEntry("Right pressure", cells[i].pressure);
+				eo.AddEntry("Right velocity", cells[i].velocity);
+				eo.AddEntry("Right entropy", cells[i].entropy);
+			}
+			else
+			{
+				eo.AddEntry("Right density", ghost_cells[NGHOSTCELLS].density);
+				eo.AddEntry("Right pressure", ghost_cells[NGHOSTCELLS].pressure);
+				eo.AddEntry("Right velocity", ghost_cells[NGHOSTCELLS].velocity);
+				eo.AddEntry("Right entropy", ghost_cells[NGHOSTCELLS].entropy);
+			}
+			throw eo;
+		}
 	}
 
 	void UpdateExtensives(vector<Extensive> &cells, std::vector<Extensive> &fluxes, double dt, Geometry const& geo,
@@ -599,7 +644,11 @@ void hdsim::TimeAdvance()
 #endif
 	);
 	std::vector<double> vgrid(edges_.size(), 0);
-	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid);
+	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid,cells_,edges_
+#ifdef RICH_MPI
+		, ghost_cells, ghost_edges
+#endif
+	);
 	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_, dt_suggest_, vgrid);
 
 
@@ -637,7 +686,11 @@ void hdsim::TimeAdvance2()
 	);
 	std::vector<double> vgrid = GetVGrid(interp_values_, time_, edges_);
 
-	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid);
+	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid, cells_, edges_
+#ifdef RICH_MPI
+		, ghost_cells, ghost_edges
+#endif
+	);
 
 	/*if (BoundarySolution_ != 0)
 	{
@@ -667,7 +720,11 @@ void hdsim::TimeAdvance2()
 		, ghost_cells, ghost_edges
 #endif
 	);
-	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid);
+	GetFluxes(interp_values_, rs_, fluxes_, eos_, vgrid, cells_, edges_
+#ifdef RICH_MPI
+		, ghost_cells, ghost_edges
+#endif
+	);
 	/*if (BoundarySolution_ != 0)
 	{
 		pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);

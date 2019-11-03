@@ -197,7 +197,14 @@ namespace
 			++counter;
 			if (counter > 30)
 			{
-				res.first = Bisection(left, right, gamma, max_scale, minp, res.first);
+				try
+				{
+					res.first = Bisection(left, right, gamma, max_scale, minp, res.first);
+				}
+				catch (UniversalError & eo)
+				{
+					throw eo;
+				}
 				break;
 			}
 		}
@@ -219,7 +226,15 @@ ExactRS::~ExactRS()
 Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealGas const& eos,double vface) const
 {
 	// Solve RS
-	std::pair<double, double> p_u_star = Get_p_u_star(left, right, gamma_);
+	std::pair<double, double> p_u_star;
+	try
+	{
+		p_u_star = Get_p_u_star(left, right, gamma_);
+	}
+	catch (UniversalError & eo)
+	{
+		throw eo;
+	}
 	bool left_shock = p_u_star.first > left.pressure;
 	bool right_shock = p_u_star.first > right.pressure;
 	
