@@ -353,7 +353,8 @@ Extensive ExactRS::SolveRS(Primitive const& left, Primitive const& right, IdealG
 	if (!(std::isfinite(res.mass)))
 	{
 		std::cout << "Bad ExactRS output, rhol = " << left.density << " rhor = " << right.density << " pl = " << left.pressure << " pr = " << right.pressure <<
-			" ul = " << left.velocity << " ur = " << right.velocity << " rhostar = " << res.mass << " pstar = " << p_u_star.first << " ustar = " << p_u_star.second << std::endl;
+			" ul = " << left.velocity << " ur = " << right.velocity << " rhostar = " << res.mass << " pstar = " << p_u_star.first << " ustar = " << p_u_star.second << 
+			" vface = "<< vface << std::endl;
 		throw;
 	}
 	return res;
