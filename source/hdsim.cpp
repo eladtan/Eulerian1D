@@ -369,7 +369,7 @@ namespace
 
 	void update_cell_regular(vector<Extensive> &extensive, vector<double> const& edges, IdealGas const& eos,
 		vector<Primitive> &cells, Geometry const& geo, vector<pair<Primitive, Primitive> > const &interp_values,
-		std::vector<double> const& vgrid, size_t i, size_t N)
+		std::vector<double> const& vgrid, size_t i, size_t N, double dt)
 	{
 		double vol = geo.GetVolume(edges, i);
 		cells[i].density = extensive[i].mass / vol;
@@ -406,7 +406,7 @@ namespace
 			cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
 			extensive[i].entropy = cells[i].entropy*extensive[i].mass;
 		}
-		if (!(cells[i].pressure > 0) || !(cells[i].entropy > 0))
+		if (!(cells[i].pressure > 0) || !(cells[i].entropy > 0) || !(cells[i].density > 0))
 		{
 			UniversalError eo("Bad cell update");
 			eo.AddEntry("Cell index", i);
@@ -433,6 +433,8 @@ namespace
 			eo.AddEntry("Right velocity", interp_values[i + 1].second.velocity);
 			eo.AddEntry("Right entropy", interp_values[i + 1].second.entropy);
 			eo.AddEntry("vgrid", vgrid[i + 1]);
+			eo.AddEntry("dx", edges[i + 1] - edges[i]);
+			eo.AddEntry("dt", dt);
 			throw eo;
 		}
 	}
