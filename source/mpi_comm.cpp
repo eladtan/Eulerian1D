@@ -301,8 +301,9 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	// Do we need ro rebalance?
 	double maxload = (1.0*nlocal * ws) / ntotal;
 	int newload = 0;
-	double res_factor = std::min(std::pow(static_cast<double>(ntotal) / (ws * 1000), -0.33333), 0.15);
+	double res_factor = std::pow(static_cast<double>(ntotal) / (ws * 1000), -0.33333);
 	res_factor *= 0.05;
+	res_factor = std::min(res_factor, 0.15);
 	if (maxload > res_factor || maxload < (1-res_factor))
 		newload = 1;
 	int shouldcalc = 0;
