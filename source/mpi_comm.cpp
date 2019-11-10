@@ -303,8 +303,8 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	int newload = 0;
 	double res_factor = std::pow(static_cast<double>(ntotal) / (ws * 1000), -0.33333);
 	res_factor *= 0.05;
-	res_factor = std::min(res_factor, 0.15);
-	if (maxload > res_factor || maxload < (1-res_factor))
+	res_factor = std::max(std::min(res_factor, 0.15), 0.05);
+	if (maxload > (1 + res_factor) || maxload < (1-res_factor))
 		newload = 1;
 	int shouldcalc = 0;
 	MPI_Allreduce(&newload, &shouldcalc, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
