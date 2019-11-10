@@ -2,6 +2,7 @@
 #include <array>
 #include <assert.h>
 #include <iostream>
+#include <cmath>
 #ifdef RICH_MPI
 
 namespace
@@ -300,7 +301,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	// Do we need ro rebalance?
 	double maxload = (1.0*nlocal * ws) / ntotal;
 	int newload = 0;
-	double res_factor = std::pow(static_cast<double>(ntotal) / (ws * 1000), -0.33333);
+	double res_factor = std::min(std::pow(static_cast<double>(ntotal) / (ws * 1000), -0.33333), 0.15);
 	res_factor *= 0.05;
 	if (maxload > res_factor || maxload < (1-res_factor))
 		newload = 1;
