@@ -300,7 +300,9 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	// Do we need ro rebalance?
 	double maxload = (1.0*nlocal * ws) / ntotal;
 	int newload = 0;
-	if (maxload > 1.025 || maxload < 0.975)
+	double res_factor = std::pow(static_cast<double>(ntotal) / (ws * 1000), -0.33333);
+	res_factor *= 0.05;
+	if (maxload > res_factor || maxload < (1-res_factor))
 		newload = 1;
 	int shouldcalc = 0;
 	MPI_Allreduce(&newload, &shouldcalc, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
