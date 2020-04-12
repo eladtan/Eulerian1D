@@ -212,7 +212,8 @@ namespace
 	std::vector<double> GetVGrid(std::vector<std::pair<Primitive, Primitive> > const& interp_values, double time, std::vector<double> const& edges)
 	{
 		size_t N = edges.size();
-		double vgrid = interp_values[0].first.velocity;
+		//double vgrid = interp_values[0].first.velocity;
+		double vgrid = 0;
 #ifdef RICH_MPI
 		int rank = 0;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
