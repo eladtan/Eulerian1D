@@ -97,13 +97,13 @@ public:
 			extensives[i].momentum += g * cells[i].density*dt*geo_.GetVolume(edges,i);
 			extensives[i].energy += g * cells[i].density*dt*geo_.GetVolume(edges,i)*cells[i].velocity;
 			dt_1_ = std::max(dt_1_, std::sqrt(std::abs(g) / (edges[i + 1] - edges[i])));
-			dt_1_ = std::max(dt_1_, std::abs(g / std::max(1e-20,cells[i].velocity)));
+			//dt_1_ = std::max(dt_1_, std::abs(g / std::max(1e-20, std::abs(cells[i].velocity))));
 		}
 		dt_1_ *= 8;
 		return;
 	}
 
-	double GetInverseTimeStep(vector<double> const& edges)const
+	double GetInverseTimeStep(vector<double> const& edges) const
 	{
 		return dt_1_;
 	}
