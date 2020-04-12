@@ -140,10 +140,10 @@ vector<Primitive> RigidWall1::GetBoundaryValues(vector<Primitive> const & cells,
 				new_cells[i].velocity *= gamma;
 			}
 		}
-		res[1] = cells[1] ;
+		res[1] = new_cells[1] ;
 		res[2] = res[1];
 		res[2].velocity = -res[1].velocity;
-		res[0] = cells[1];
+		res[0] = new_cells[1];
 	}
 	if (SR)
 	{
