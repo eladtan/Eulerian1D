@@ -324,10 +324,12 @@ namespace
 			}
 			else
 			{
+#ifdef RICH_MPI
 				eo.AddEntry("Left density", ghost_cells[NGHOSTCELLS - 1].density);
 				eo.AddEntry("Left pressure", ghost_cells[NGHOSTCELLS - 1].pressure);
 				eo.AddEntry("Left velocity", ghost_cells[NGHOSTCELLS - 1].velocity);
 				eo.AddEntry("Left entropy", ghost_cells[NGHOSTCELLS - 1].entropy);
+#endif
 			}
 			if (i < cells.size())
 			{
@@ -338,10 +340,12 @@ namespace
 			}
 			else
 			{
+#ifdef RICH_MPI
 				eo.AddEntry("Right density", ghost_cells[NGHOSTCELLS].density);
 				eo.AddEntry("Right pressure", ghost_cells[NGHOSTCELLS].pressure);
 				eo.AddEntry("Right velocity", ghost_cells[NGHOSTCELLS].velocity);
 				eo.AddEntry("Right entropy", ghost_cells[NGHOSTCELLS].entropy);
+#endif
 			}
 			throw eo;
 		}
@@ -707,8 +711,8 @@ void hdsim::TimeAdvance2()
 	vector<Extensive> old_extensive(extensives_);
 	std::vector<double> oldedges(edges_);
 	UpdateExtensives(extensives_, fluxes_, dt, geo_, edges_, interp_values_, vgrid);
-	MoveGrid(vgrid, edges_, dt);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
+	MoveGrid(vgrid, edges_, dt);
 	UpdateCells(extensives_, edges_, eos_, cells_, geo_, interp_values_, vgrid,SR_, dt);
 	time_ += dt;
 #ifdef RICH_MPI

@@ -7,7 +7,6 @@
 #include "ExactRS.hpp"
 #include "Extensive.hpp"
 #include "SourceTerm.hpp"
-//#include "Boundary.hpp"
 #include "Geometry.hpp"
 #include <vector>
 
@@ -32,7 +31,6 @@ private:
 	SourceTerm const& source_;
 	Geometry const& geo_;
 	const double AMR_ratio_;
-	//	BoundarySolution const* BoundarySolution_;
 	bool SR_;
 	double dt_suggest_;
 	void AMR(
